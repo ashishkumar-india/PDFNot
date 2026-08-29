@@ -170,22 +170,18 @@ class CanvasManager {
     if (!workspace || !upperCanvas) return;
 
     let isPinching = false;
-    let initialPinchDistance = 0;
-    let initialPinchZoom = 1;
-    let lastAppliedZoom = 1;
+    let prevPinchDistance = 0;
 
     const handleTouchStart = (e) => {
-      // 2-FINGER PINCH-ZOOM: Capture cleanly before Fabric creates selection box
+      // 2-FINGER PINCH-ZOOM:
       if (e.touches.length >= 2) {
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        if (dist > 25) {
+        if (dist > 20) {
           isPinching = true;
           this.canvas.selection = false;
-          initialPinchDistance = dist;
-          initialPinchZoom = this.zoomLevel || 1;
-          lastAppliedZoom = initialPinchZoom;
+          prevPinchDistance = dist;
           e.preventDefault();
           e.stopPropagation();
         }
@@ -195,7 +191,6 @@ class CanvasManager {
       // 1-FINGER TOUCH
       if (e.touches.length === 1) {
         isPinching = false;
-        // On mobile, disable marquee drag box to prevent blue selection rectangles
         if (window.innerWidth <= 768) {
           this.canvas.selection = false;
         }
@@ -203,27 +198,25 @@ class CanvasManager {
     };
 
     const handleTouchMove = (e) => {
-      // Stable, calm, linear 2-finger pinch zooming with deadzone threshold and step quantizer
-      if (e.touches.length >= 2 && isPinching && initialPinchDistance > 25) {
+      // Butter-smooth, continuous, calm 2-finger pinch zoom
+      if (e.touches.length >= 2 && isPinching && prevPinchDistance > 20) {
         e.preventDefault();
         e.stopPropagation();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
-        const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        
-        // 14px deadzone threshold to ignore finger tremor and accidental scrolls
-        if (Math.abs(currentDistance - initialPinchDistance) > 14) {
-          const ratio = currentDistance / initialPinchDistance;
-          // Calm 0.50 scaling factor: steady, controlled, natural zoom response
-          const rawTarget = initialPinchZoom * (1 + (ratio - 1) * 0.50);
-          const clamped = Math.min(Math.max(rawTarget, this.minZoom), this.maxZoom);
-          const roundedZoom = Math.round(clamped * 20) / 20;
+        const currDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
 
-          if (Math.abs(roundedZoom - lastAppliedZoom) >= 0.05) {
-            lastAppliedZoom = roundedZoom;
-            this.setZoom(roundedZoom);
-          }
+        const delta = currDistance - prevPinchDistance;
+        // Calm continuous scaling: 400px denominator gives natural, gentle iOS/Google Maps speed
+        const zoomFactor = 1 + (delta / 400);
+
+        let newZoom = this.zoomLevel * zoomFactor;
+        newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
+
+        if (Math.abs(newZoom - this.zoomLevel) > 0.002) {
+          this.setZoom(newZoom);
         }
+        prevPinchDistance = currDistance;
         return;
       }
     };
@@ -231,7 +224,7 @@ class CanvasManager {
     const handleTouchEnd = (e) => {
       if (e.touches.length < 2) {
         isPinching = false;
-        initialPinchDistance = 0;
+        prevPinchDistance = 0;
       }
       if (e.touches.length === 0) {
         if (this.activeTool === 'select' && window.innerWidth > 768) {
