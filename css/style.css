@@ -986,3 +986,276 @@ label {
 .mt-3 { margin-top: 12px; }
 .mb-3 { margin-bottom: 12px; }
 .ml-1 { margin-left: 4px; }
+
+/* ==========================================================================
+   RESPONSIVE DESIGN & MOBILE/TABLET ADAPTATIONS
+   ========================================================================== */
+
+/* Mobile Backdrop Overlay */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 85;
+  transition: opacity var(--transition-normal);
+}
+.sidebar-backdrop.active {
+  display: block;
+}
+
+.mobile-toggle-btn {
+  display: none;
+}
+
+/* 1. Large Tablets & Small Laptops (max-width: 1200px) */
+@media (max-width: 1200px) {
+  :root {
+    --sidebar-width: 200px;
+    --inspector-width: 260px;
+  }
+  .doc-title-wrapper input {
+    width: 130px;
+  }
+  .floating-toolbar {
+    left: calc(var(--sidebar-width) + 12px);
+    top: 12px;
+  }
+  .pages-sidebar.collapsed ~ .floating-toolbar {
+    left: 12px;
+  }
+}
+
+/* 2. Tablets & iPads (max-width: 992px) */
+@media (max-width: 992px) {
+  :root {
+    --sidebar-width: 240px;
+    --inspector-width: 290px;
+  }
+
+  .mobile-toggle-btn {
+    display: inline-flex;
+  }
+
+  .file-actions span,
+  .btn-ghost span,
+  .btn-primary span {
+    display: none;
+  }
+  .file-actions .btn,
+  .file-actions label {
+    padding: 6px 10px;
+  }
+
+  .doc-title-wrapper {
+    padding: 4px 8px;
+  }
+  .doc-title-wrapper input {
+    width: 110px;
+    font-size: 12px;
+  }
+
+  .zoom-controls {
+    display: none; /* Zoom gestures / pinch & fit handled automatically */
+  }
+
+  /* Slide-out Drawers for Sidebars */
+  .pages-sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 90;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.75);
+    background: #0f172a;
+    transition: transform var(--transition-normal);
+  }
+  .pages-sidebar.open-mobile {
+    transform: translateX(0);
+    width: var(--sidebar-width);
+  }
+
+  .floating-toolbar {
+    left: 14px;
+    top: 14px;
+  }
+
+  .properties-sidebar {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 90;
+    transform: translateX(100%);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.75);
+    background: #0f172a;
+    transition: transform var(--transition-normal);
+  }
+  .properties-sidebar.open-mobile {
+    transform: translateX(0);
+    width: var(--inspector-width);
+  }
+
+  .canvas-workspace {
+    padding: 16px;
+  }
+}
+
+/* 3. Mobile Phones (max-width: 768px) */
+@media (max-width: 768px) {
+  :root {
+    --header-height: 52px;
+  }
+
+  .app-header {
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .logo-subtitle,
+  .divider-v,
+  .history-controls,
+  #btn-keyboard-shortcuts {
+    display: none !important;
+  }
+
+  .logo-title {
+    font-size: 13px;
+  }
+  .app-logo {
+    gap: 6px;
+  }
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+  }
+
+  .header-left {
+    gap: 4px;
+  }
+
+  .header-center {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .doc-title-wrapper {
+    display: none;
+  }
+
+  .page-navigation {
+    padding: 2px 4px;
+  }
+  .page-counter {
+    font-size: 11px;
+    margin: 0 4px;
+  }
+  .page-counter input {
+    width: 28px;
+    font-size: 11px;
+  }
+
+  .header-right {
+    gap: 4px;
+  }
+
+  .export-group .btn-success {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  /* Floating Toolbar on Mobile - Horizontal Bottom Dock */
+  .floating-toolbar {
+    position: fixed;
+    bottom: 12px;
+    top: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: row;
+    padding: 6px 10px;
+    border-radius: var(--radius-full);
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.85);
+    z-index: 70;
+    max-width: 96vw;
+    overflow-x: auto;
+  }
+  .floating-toolbar .tool-group {
+    flex-direction: row;
+    gap: 4px;
+  }
+  .floating-toolbar .tool-separator {
+    width: 1px;
+    height: 22px;
+    margin: 0 4px;
+  }
+  .tool-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .tool-btn .tool-tip {
+    display: none !important;
+  }
+
+  .canvas-workspace {
+    padding: 10px;
+    padding-bottom: 74px; /* Space for horizontal floating bottom dock */
+  }
+
+  .canvas-sheet-wrapper {
+    max-width: 100%;
+  }
+
+  /* Responsive Modals */
+  .modal-dialog {
+    width: 94vw !important;
+    max-width: 94vw !important;
+    margin: 12px auto;
+    max-height: 90vh;
+    border-radius: var(--radius-lg);
+  }
+  .modal-body {
+    padding: 12px;
+    max-height: calc(90vh - 120px);
+    overflow-y: auto;
+  }
+  .signature-pad-container {
+    height: 180px !important;
+  }
+}
+
+/* 4. Extra Small Phones (max-width: 480px) */
+@media (max-width: 480px) {
+  .app-header {
+    padding: 0 4px;
+  }
+  .logo-title span.badge-pro {
+    display: none;
+  }
+  .export-group .btn-success span {
+    display: none;
+  }
+  .export-group .btn-success {
+    padding: 6px 10px;
+  }
+  .floating-toolbar {
+    padding: 4px 6px;
+  }
+  .tool-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+}

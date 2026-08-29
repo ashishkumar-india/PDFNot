@@ -269,6 +269,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       }
 
+      // Mobile Drawer Toggles (Pages & Properties)
+      const btnTogglePagesMobile = document.getElementById('btn-toggle-pages-mobile');
+      const btnToggleInspectorMobile = document.getElementById('btn-toggle-inspector-mobile');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      const pagesSidebar = document.getElementById('pages-sidebar');
+      const propsSidebar = document.getElementById('properties-sidebar');
+
+      const closeDrawers = () => {
+        pagesSidebar?.classList.remove('open-mobile');
+        propsSidebar?.classList.remove('open-mobile');
+        backdrop?.classList.remove('active');
+      };
+
+      btnTogglePagesMobile?.addEventListener('click', () => {
+        const isOpen = pagesSidebar?.classList.toggle('open-mobile');
+        propsSidebar?.classList.remove('open-mobile');
+        backdrop?.classList.toggle('active', isOpen);
+      });
+
+      btnToggleInspectorMobile?.addEventListener('click', () => {
+        const isOpen = propsSidebar?.classList.toggle('open-mobile');
+        pagesSidebar?.classList.remove('open-mobile');
+        backdrop?.classList.toggle('active', isOpen);
+      });
+
+      backdrop?.addEventListener('click', closeDrawers);
+
       // Sidebar Rotate & Delete
       document.getElementById('btn-rotate-page-left')?.addEventListener('click', () => this.rotateCurrentPage(-90));
       document.getElementById('btn-rotate-page-right')?.addEventListener('click', () => this.rotateCurrentPage(90));

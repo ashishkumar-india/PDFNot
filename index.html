@@ -25,6 +25,10 @@
   <!-- TOP HEADER / APP BAR -->
   <header class="app-header">
     <div class="header-left">
+      <button id="btn-toggle-pages-mobile" class="btn-icon mobile-toggle-btn" title="Toggle Pages">
+        <i class="fa-solid fa-layer-group"></i>
+      </button>
+
       <div class="app-logo">
         <div class="logo-icon">
           <i class="fa-solid fa-file-signature"></i>
@@ -142,8 +146,15 @@
       <button id="btn-keyboard-shortcuts" class="btn-icon ml-1" title="Keyboard Shortcuts (?)">
         <i class="fa-regular fa-circle-question"></i>
       </button>
+
+      <button id="btn-toggle-inspector-mobile" class="btn-icon mobile-toggle-btn ml-1" title="Toggle Properties & Tools">
+        <i class="fa-solid fa-sliders"></i>
+      </button>
     </div>
   </header>
+
+  <!-- Mobile Drawer Backdrop -->
+  <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
   <!-- MAIN APP CONTAINER -->
   <main class="app-body">
