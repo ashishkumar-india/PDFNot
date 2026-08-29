@@ -52,9 +52,12 @@
   --radius-xl: 20px;
   --radius-full: 9999px;
   
-  /* Transitions */
-  --transition-fast: 0.15s ease;
+  /* Transitions — spring = premium native-app feel */
+  --transition-fast:   0.13s ease;
   --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-spring-fast: 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-drawer: 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Global Reset & Base */
@@ -309,12 +312,15 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
   padding: 7px 14px;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              box-shadow var(--transition-fast),
+              transform var(--transition-spring-fast),
+              border-color var(--transition-fast);
   user-select: none;
   white-space: nowrap;
 }
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.955);
 }
 .btn-sm {
   padding: 6px 12px;
@@ -549,7 +555,7 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
   display: flex;
   flex-direction: column;
   z-index: 30;
-  transition: transform var(--transition-normal), width var(--transition-normal);
+  transition: transform var(--transition-drawer), width var(--transition-drawer);
   /* GPU composite layer for smooth slide */
   will-change: transform;
   transform: translateZ(0);
@@ -667,7 +673,11 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
   justify-content: center;
   cursor: pointer;
   position: relative;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              color var(--transition-fast),
+              transform var(--transition-spring-fast),
+              box-shadow 0.2s ease,
+              border-color var(--transition-fast);
   /* Minimum touch target */
   min-width: 44px;
   min-height: 44px;
@@ -678,12 +688,13 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
 }
 .tool-btn:active {
   background: var(--bg-surface-active);
-  transform: scale(0.93);
+  transform: scale(0.88);
 }
 .tool-btn.active {
   background: var(--accent-primary) !important;
   color: #ffffff !important;
-  box-shadow: 0 0 14px var(--accent-primary-glow);
+  box-shadow: 0 0 14px var(--accent-primary-glow), 0 2px 8px rgba(59,130,246,0.4);
+  transform: scale(1.04);
 }
 .tool-btn.active i,
 .tool-btn.active [class*="text-"],
@@ -840,6 +851,41 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
   to { transform: rotate(360deg); }
 }
 
+/* ===== ANIMATION KEYFRAMES ===== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(32px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+@keyframes modalPop {
+  0%   { opacity: 0; transform: scale(0.9) translateY(18px); }
+  60%  { transform: scale(1.025) translateY(-3px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 8px)); }
+  to   { opacity: 1; transform: translate(-50%, -100%); }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(24px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
 /* Floating Context Bar (over active element) */
 .floating-context-bar {
   position: absolute;
@@ -899,7 +945,7 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
   display: flex;
   flex-direction: column;
   z-index: 30;
-  transition: transform var(--transition-normal), width var(--transition-normal);
+  transition: transform var(--transition-drawer), width var(--transition-drawer);
   /* GPU composite layer */
   will-change: transform;
   transform: translateZ(0);
@@ -1485,7 +1531,7 @@ label {
     height: 22px;
   }
 
-  /* Responsive Modals */
+  /* Responsive Modals — bottom-sheet style on mobile */
   .modal-overlay {
     padding: 8px;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -1497,6 +1543,8 @@ label {
     margin: 0;
     max-height: 94dvh !important;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    /* Native bottom-sheet slide-up */
+    animation: modalSlideUp 0.34s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
   .modal-body {
     padding: 14px;

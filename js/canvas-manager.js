@@ -19,6 +19,17 @@ class CanvasManager {
     this.lastPosY = 0;
     this.spacePressed = false;
 
+    // Inertia/momentum panning state (hand tool)
+    this._panVelX = 0;
+    this._panVelY = 0;
+    this._lastPanMoveX = 0;
+    this._lastPanMoveY = 0;
+    this._lastPanMoveTime = 0;
+    this._inertiaRafId = null;
+
+    // RAF throttle for pinch-zoom (prevents jank on rapid gesture)
+    this._pinchRafPending = false;
+
     // History state (Undo / Redo)
     this.historyStack = [];
     this.historyIndex = -1;
@@ -243,24 +254,42 @@ class CanvasManager {
     };
 
     const handleTouchMove = (e) => {
-      // Butter-smooth, continuous, calm 2-finger pinch zoom
+      // Butter-smooth 2-finger pinch zoom TO the finger midpoint (Google Maps style)
       if (e.touches.length >= 2 && isPinching && prevPinchDistance > 20) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Cancel any in-flight inertia when user starts a new gesture
+        cancelAnimationFrame(this._inertiaRafId);
+
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
 
         const delta = currDistance - prevPinchDistance;
-        // Calm continuous scaling: 550px denominator = natural gentle iOS/Google Maps speed
+        // 550px denominator = calm, natural iOS/Google Maps feel
         const zoomFactor = 1 + (delta / 550);
 
         let newZoom = this.zoomLevel * zoomFactor;
         newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
 
-        // Only apply if the change is meaningful (avoid micro-jitter)
+        // Only apply if the change is meaningful (suppress micro-jitter)
         if (Math.abs(newZoom - this.zoomLevel) > 0.003) {
-          this.setZoom(newZoom);
+          // Zoom toward the MIDPOINT between both fingers \u2014 professional behavior
+          const midX = (t1.clientX + t2.clientX) / 2;
+          const midY = (t1.clientY + t2.clientY) / 2;
+
+          // RAF-throttle to stay at 60fps and prevent layout thrash on rapid gestures
+          if (!this._pinchRafPending) {
+            this._pinchRafPending = true;
+            requestAnimationFrame(() => {
+              this._pinchRafPending = false;
+              this.setZoomToPoint(newZoom, midX, midY);
+            });
+          } else {
+            // Still update zoomLevel so next RAF picks up the latest value
+            this.zoomLevel = newZoom;
+          }
         }
         prevPinchDistance = currDistance;
         return;
@@ -436,15 +465,54 @@ class CanvasManager {
     if (this.isPanning) {
       const e = opt.e;
       const workspace = document.getElementById('canvas-workspace');
-      workspace.scrollLeft -= (e.clientX - this.lastPosX);
-      workspace.scrollTop -= (e.clientY - this.lastPosY);
+      if (!workspace) return;
+
+      const dx = e.clientX - this.lastPosX;
+      const dy = e.clientY - this.lastPosY;
+
+      workspace.scrollLeft -= dx;
+      workspace.scrollTop -= dy;
+
+      // Track velocity for inertia (frames-per-ms based)
+      const now = performance.now();
+      const dt = Math.max(now - this._lastPanMoveTime, 1);
+      this._panVelX = dx / dt;
+      this._panVelY = dy / dt;
+      this._lastPanMoveTime = now;
+
       this.lastPosX = e.clientX;
       this.lastPosY = e.clientY;
     }
   }
 
   handleMouseUp() {
+    if (this.isPanning) {
+      // Launch inertia momentum scroll (iOS-Maps-style friction decay)
+      this._startPanInertia();
+    }
     this.isPanning = false;
+  }
+
+  /** Momentum/inertia panning after hand-tool drag ends */
+  _startPanInertia() {
+    cancelAnimationFrame(this._inertiaRafId);
+    const workspace = document.getElementById('canvas-workspace');
+    if (!workspace) return;
+
+    let vx = this._panVelX * 16; // scale to per-frame
+    let vy = this._panVelY * 16;
+    const FRICTION = 0.88; // decay per frame — 0.88 = natural iOS feel
+    const MIN_VEL = 0.3;   // stop below this threshold
+
+    const step = () => {
+      vx *= FRICTION;
+      vy *= FRICTION;
+      if (Math.abs(vx) < MIN_VEL && Math.abs(vy) < MIN_VEL) return;
+      workspace.scrollLeft -= vx;
+      workspace.scrollTop -= vy;
+      this._inertiaRafId = requestAnimationFrame(step);
+    };
+    this._inertiaRafId = requestAnimationFrame(step);
   }
 
   handleMouseWheel(opt) {
@@ -453,16 +521,15 @@ class CanvasManager {
       opt.e.stopPropagation();
 
       // Clamp raw delta to avoid jumpy zoom on high-resolution trackpads
-      // (delta can be 100+ per frame on some trackpads without clamping)
       const rawDelta = opt.e.deltaY;
       const clampedDelta = Math.max(-30, Math.min(30, rawDelta));
 
       let zoom = this.zoomLevel;
       zoom *= 0.999 ** clampedDelta;
-      if (zoom > this.maxZoom) zoom = this.maxZoom;
-      if (zoom < this.minZoom) zoom = this.minZoom;
+      zoom = Math.min(Math.max(zoom, this.minZoom), this.maxZoom);
 
-      this.setZoom(zoom);
+      // Zoom to cursor position (not canvas center) — professional behavior
+      this.setZoomToPoint(zoom, opt.e.clientX, opt.e.clientY);
     }
   }
 
@@ -474,7 +541,6 @@ class CanvasManager {
       const pageH = this.canvas.getHeight();
       
       if (pageW > 0 && pageH > 0) {
-        // Set exact scaled dimensions so the flex container centers it perfectly without huge invisible overflow margins
         viewport.style.position = 'relative';
         viewport.style.width = `${Math.round(pageW * zoom)}px`;
         viewport.style.height = `${Math.round(pageH * zoom)}px`;
@@ -482,7 +548,6 @@ class CanvasManager {
         
         const shadowBox = viewport.querySelector('.canvas-shadow-box');
         if (shadowBox) {
-          // Lock to top-left to prevent flexbox from shifting the unscaled container offscreen!
           shadowBox.style.position = 'absolute';
           shadowBox.style.left = '0';
           shadowBox.style.top = '0';
@@ -500,6 +565,37 @@ class CanvasManager {
     if (zoomText) {
       zoomText.textContent = `${Math.round(zoom * 100)}%`;
     }
+  }
+
+  /**
+   * Zoom to a specific screen point (finger midpoint or cursor).
+   * Keeps the focal point stationary — professional Google-Maps-style behavior.
+   * @param {number} newZoom  Target zoom level
+   * @param {number} clientX  Screen X of focal point
+   * @param {number} clientY  Screen Y of focal point
+   */
+  setZoomToPoint(newZoom, clientX, clientY) {
+    const workspace = document.getElementById('canvas-workspace');
+    if (!workspace) { this.setZoom(newZoom); return; }
+
+    const pageW = this.canvas.getWidth();
+    const pageH = this.canvas.getHeight();
+    if (pageW <= 0 || pageH <= 0) { this.setZoom(newZoom); return; }
+
+    const oldZoom = this.zoomLevel;
+    const wsRect = workspace.getBoundingClientRect();
+
+    // Focal point in scroll-space BEFORE zoom
+    const focalScrollX = workspace.scrollLeft + (clientX - wsRect.left);
+    const focalScrollY = workspace.scrollTop  + (clientY - wsRect.top);
+
+    // Apply the zoom (this resizes the viewport)
+    this.setZoom(newZoom);
+
+    // Scroll so the focal point appears at the same screen position AFTER zoom
+    const scale = newZoom / oldZoom;
+    workspace.scrollLeft = focalScrollX * scale - (clientX - wsRect.left);
+    workspace.scrollTop  = focalScrollY * scale - (clientY - wsRect.top);
   }
 
   zoomIn() {

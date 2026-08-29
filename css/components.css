@@ -16,17 +16,26 @@
   align-items: center;
   gap: 6px;
   position: relative;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s ease;
   user-select: none;
+  will-change: transform;
 }
 .thumb-item:hover {
   background: var(--bg-surface-hover);
   border-color: rgba(255, 255, 255, 0.15);
+  transform: scale(1.025);
+}
+.thumb-item:active {
+  transform: scale(0.97);
 }
 .thumb-item.active {
   border-color: var(--accent-primary);
   background: rgba(59, 130, 246, 0.1);
   box-shadow: 0 0 14px var(--accent-primary-glow);
+  transform: scale(1.01);
 }
 .thumb-preview-wrap {
   width: 100%;
@@ -91,15 +100,17 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 1000;
   display: none;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.18s ease;
+  /* GPU layer */
+  will-change: opacity;
 }
 .modal-overlay.show {
   display: flex;
@@ -109,12 +120,13 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-color-light);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04) inset;
   display: flex;
   flex-direction: column;
   max-height: 92vh;
   overflow: hidden;
-  animation: modalPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: modalPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
 }
 .modal-sm { width: 400px; }
 .modal-md { width: 560px; }
@@ -645,10 +657,10 @@ kbd {
 }
 .toast-msg {
   pointer-events: auto;
-  background: var(--bg-surface);
+  background: rgba(22, 32, 56, 0.94);
   border: 1px solid var(--border-color-light);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06) inset;
   padding: 12px 18px;
   font-size: 13px;
   font-weight: 500;
@@ -656,8 +668,10 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
-  animation: slideInRight 0.25s ease, fadeOut 0.25s ease 2.75s forwards;
-  backdrop-filter: var(--glass-blur);
+  animation: toastIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), fadeOut 0.28s ease 2.72s forwards;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  will-change: transform, opacity;
 }
 .toast-msg.toast-success {
   border-left: 4px solid var(--accent-success);
