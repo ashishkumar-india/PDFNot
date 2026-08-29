@@ -136,30 +136,44 @@ class CanvasManager {
    */
   bindTouchEvents() {
     const workspace = document.getElementById('canvas-workspace');
-    if (!workspace) return;
+    const upperCanvas = this.canvas.upperCanvasEl;
+    if (!workspace || !upperCanvas) return;
 
+    let isPinching = false;
     let initialPinchDistance = 0;
     let initialZoom = 1.0;
+    let lastTapTime = 0;
     let touchStartX = 0;
     let touchStartY = 0;
     let isTouchPanning = false;
-    let lastTapTime = 0;
 
-    // Prevent default mobile gesture interference on the workspace
-    workspace.addEventListener('touchstart', (e) => {
-      // Two-finger pinch-to-zoom start
-      if (e.touches.length === 2) {
+    const handleTouchStart = (e) => {
+      // 2-FINGER PINCH-ZOOM: Capture before Fabric creates selection box
+      if (e.touches.length >= 2) {
+        isPinching = true;
         isTouchPanning = false;
+        this.canvas.selection = false;
+        this.canvas.discardActiveObject();
+        this.canvas.renderAll();
+
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         initialZoom = this.zoomLevel;
+
         e.preventDefault();
+        e.stopPropagation();
         return;
       }
 
-      // Double-tap to fit screen on mobile
+      // 1-FINGER TOUCH
       if (e.touches.length === 1) {
+        isPinching = false;
+        // On mobile, disable marquee drag box to prevent accidental blue selection rectangles
+        if (window.innerWidth <= 768) {
+          this.canvas.selection = false;
+        }
+
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTapTime;
         if (tapLength < 300 && tapLength > 50 && !this.isEditingText()) {
@@ -176,12 +190,13 @@ class CanvasManager {
           touchStartY = e.touches[0].clientY;
         }
       }
-    }, { passive: false });
+    };
 
-    workspace.addEventListener('touchmove', (e) => {
+    const handleTouchMove = (e) => {
       // Active two-finger pinch zooming
-      if (e.touches.length === 2 && initialPinchDistance > 0) {
+      if (e.touches.length >= 2 && isPinching && initialPinchDistance > 0) {
         e.preventDefault();
+        e.stopPropagation();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -204,16 +219,30 @@ class CanvasManager {
         touchStartX = currentX;
         touchStartY = currentY;
       }
-    }, { passive: false });
+    };
 
-    workspace.addEventListener('touchend', (e) => {
+    const handleTouchEnd = (e) => {
       if (e.touches.length < 2) {
         initialPinchDistance = 0;
+        isPinching = false;
       }
       if (e.touches.length === 0) {
         isTouchPanning = false;
+        if (this.activeTool === 'select' && window.innerWidth > 768) {
+          this.canvas.selection = true;
+        }
       }
-    }, { passive: false });
+    };
+
+    // Capture phase on upperCanvas to intercept before Fabric.js internal listeners
+    upperCanvas.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    workspace.addEventListener('touchstart', handleTouchStart, { passive: false });
+
+    upperCanvas.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    workspace.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    upperCanvas.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
+    workspace.addEventListener('touchend', handleTouchEnd, { passive: false });
   }
 
   isEditingText() {
