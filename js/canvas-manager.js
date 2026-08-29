@@ -41,7 +41,34 @@ class CanvasManager {
     this.pdfEngine = null;
     this.uiManager = null;
 
+    // Haptic feedback & Touch Gestures
+    this._lastTapTime = 0;
+    this._lastTapX = 0;
+    this._lastTapY = 0;
+    this._pinchStartX = 0;
+    this._pinchStartY = 0;
+    this._swipePageLocked = false;
+
+    // Magnetic Center Snapping state
+    this.snapThreshold = 8;
+    this.snapLines = { x: null, y: null };
+    this._didSnapHaptic = false;
+
     this.initCanvas();
+  }
+
+  /**
+   * Universal Haptic Vibration feedback for touch devices
+   */
+  triggerHaptic(type = 'light') {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        if (type === 'light') navigator.vibrate(8);
+        else if (type === 'medium') navigator.vibrate(16);
+        else if (type === 'heavy') navigator.vibrate(28);
+        else if (type === 'success') navigator.vibrate([8, 25, 12]);
+      } catch (e) {}
+    }
   }
 
   initCanvas() {
@@ -116,6 +143,97 @@ class CanvasManager {
 
     this.bindCanvasEvents();
     this.bindTouchEvents();
+    this.initSnapGuidelines();
+  }
+
+  /**
+   * Smart Magnetic Center Alignment Guidelines
+   */
+  initSnapGuidelines() {
+    this.canvas.on('object:moving', (e) => {
+      const obj = e.target;
+      if (!obj) return;
+
+      const pageW = this.canvas.getWidth();
+      const pageH = this.canvas.getHeight();
+      const centerX = pageW / 2;
+      const centerY = pageH / 2;
+
+      const bound = obj.getBoundingRect(true);
+      const objCenterX = bound.left + bound.width / 2;
+      const objCenterY = bound.top + bound.height / 2;
+
+      let snapped = false;
+
+      // Magnetic Snap to Center X
+      if (Math.abs(objCenterX - centerX) < this.snapThreshold) {
+        const diffX = centerX - objCenterX;
+        obj.left += diffX;
+        this.snapLines.x = centerX;
+        snapped = true;
+      } else {
+        this.snapLines.x = null;
+      }
+
+      // Magnetic Snap to Center Y
+      if (Math.abs(objCenterY - centerY) < this.snapThreshold) {
+        const diffY = centerY - objCenterY;
+        obj.top += diffY;
+        this.snapLines.y = centerY;
+        snapped = true;
+      } else {
+        this.snapLines.y = null;
+      }
+
+      if (snapped && !this._didSnapHaptic) {
+        this.triggerHaptic('light');
+        this._didSnapHaptic = true;
+      } else if (!snapped) {
+        this._didSnapHaptic = false;
+      }
+
+      this.canvas.requestRenderAll();
+    });
+
+    // Render Cyan Smart Guidelines over Canvas
+    this.canvas.on('after:render', () => {
+      if (this.snapLines.x === null && this.snapLines.y === null) return;
+      const ctx = this.canvas.contextTop;
+      if (!ctx) return;
+
+      ctx.save();
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+
+      if (this.snapLines.x !== null) {
+        ctx.beginPath();
+        ctx.moveTo(this.snapLines.x, 0);
+        ctx.lineTo(this.snapLines.x, this.canvas.getHeight());
+        ctx.stroke();
+      }
+
+      if (this.snapLines.y !== null) {
+        ctx.beginPath();
+        ctx.moveTo(0, this.snapLines.y);
+        ctx.lineTo(this.canvas.getWidth(), this.snapLines.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+
+    const clearGuidelines = () => {
+      if (this.snapLines.x !== null || this.snapLines.y !== null) {
+        this.snapLines.x = null;
+        this.snapLines.y = null;
+        this._didSnapHaptic = false;
+        this.canvas.requestRenderAll();
+      }
+    };
+
+    this.canvas.on('object:modified', clearGuidelines);
+    this.canvas.on('mouse:up', clearGuidelines);
+    this.canvas.on('selection:cleared', clearGuidelines);
   }
 
   bindCanvasEvents() {
@@ -207,7 +325,7 @@ class CanvasManager {
     let prevPinchDistance = 0;
 
     const handleTouchStart = (e) => {
-      // 2-FINGER PINCH-ZOOM:
+      // 2-FINGER PINCH-ZOOM & SWIPE GESTURE
       if (e.touches.length >= 2) {
         const t1 = e.touches[0];
         const t2 = e.touches[1];
@@ -215,13 +333,14 @@ class CanvasManager {
         if (dist > 20) {
           isPinching = true;
           prevPinchDistance = dist;
+          this._pinchStartX = (t1.clientX + t2.clientX) / 2;
+          this._pinchStartY = (t1.clientY + t2.clientY) / 2;
+          this._swipePageLocked = false;
 
           // CRITICAL: Immediately cancel any Fabric selection or object drag
           // that started when the first finger touched the screen.
-          // Without this, Fabric creates a selection rectangle or drags an object.
           this.canvas.selection = false;
           this.canvas.discardActiveObject();
-          // Stop Fabric from continuing to process this gesture
           this.canvas._isCurrentlyDrawingSelection = false;
           this.canvas._groupSelector = null;
           this.canvas.renderAll();
@@ -238,48 +357,95 @@ class CanvasManager {
         return;
       }
 
-      // 1-FINGER TOUCH — ensure no pinch state leak
+      // 1-FINGER TOUCH (Double-Tap to Smart Zoom & Reset)
       if (e.touches.length === 1) {
         isPinching = false;
-        // Restore user-select after pinch ends
         upperCanvas.style.userSelect = '';
         upperCanvas.style.webkitUserSelect = '';
         workspace.style.userSelect = '';
         workspace.style.webkitUserSelect = '';
-        // On mobile, single-tap should never trigger drag-selection box
         if (window.innerWidth <= 768) {
           this.canvas.selection = false;
         }
+
+        const now = performance.now();
+        const touch = e.touches[0];
+        const tapX = touch.clientX;
+        const tapY = touch.clientY;
+        const timeDiff = now - this._lastTapTime;
+        const distDiff = Math.hypot(tapX - this._lastTapX, tapY - this._lastTapY);
+
+        // Double-Tap detection within 320ms and 25px
+        if (timeDiff < 320 && distDiff < 25) {
+          const targetEl = e.target;
+          const isInteractive = targetEl && targetEl.closest('button, input, select, textarea, .floating-context-bar, .tool-btn');
+          const hasActiveText = this.isEditingText();
+
+          if (!isInteractive && !hasActiveText) {
+            e.preventDefault();
+            this.triggerHaptic('medium');
+
+            const pageW = this.canvas.getWidth();
+            const fitZoom = (workspace && pageW > 0) ? (workspace.clientWidth - 16) / pageW : 1.0;
+
+            if (this.zoomLevel < fitZoom * 1.35) {
+              // Smart 2.2x Zoom centered on tap point
+              this.setZoomToPoint(Math.min(2.2, this.maxZoom), tapX, tapY);
+              this.showToast('🔍 2x Smart Zoom', 'info');
+            } else {
+              // Reset back to Fit
+              this.zoomFit();
+              this.showToast('📐 Fit to Screen', 'info');
+            }
+            this._lastTapTime = 0;
+            return;
+          }
+        }
+
+        this._lastTapTime = now;
+        this._lastTapX = tapX;
+        this._lastTapY = tapY;
       }
     };
 
     const handleTouchMove = (e) => {
-      // Butter-smooth 2-finger pinch zoom TO the finger midpoint (Google Maps style)
+      // Butter-smooth 2-finger pinch zoom TO finger midpoint + 2-finger Page Swipe
       if (e.touches.length >= 2 && isPinching && prevPinchDistance > 20) {
         e.preventDefault();
         e.stopPropagation();
 
-        // Cancel any in-flight inertia when user starts a new gesture
         cancelAnimationFrame(this._inertiaRafId);
 
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const midX = (t1.clientX + t2.clientX) / 2;
+        const midY = (t1.clientY + t2.clientY) / 2;
 
         const delta = currDistance - prevPinchDistance;
+        const swipeDeltaX = midX - this._pinchStartX;
+        const swipeDeltaY = midY - this._pinchStartY;
+
+        // Two-Finger Horizontal Page Swipe (if horizontal swipe > 110px without pinching)
+        if (Math.abs(swipeDeltaX) > 110 && Math.abs(swipeDeltaY) < 45 && Math.abs(delta) < 20 && !this._swipePageLocked) {
+          this._swipePageLocked = true;
+          if (swipeDeltaX < -110 && this.uiManager && typeof this.uiManager.goToNextPage === 'function') {
+            this.triggerHaptic('medium');
+            this.uiManager.goToNextPage();
+          } else if (swipeDeltaX > 110 && this.uiManager && typeof this.uiManager.goToPrevPage === 'function') {
+            this.triggerHaptic('medium');
+            this.uiManager.goToPrevPage();
+          }
+          return;
+        }
+
         // 550px denominator = calm, natural iOS/Google Maps feel
         const zoomFactor = 1 + (delta / 550);
 
         let newZoom = this.zoomLevel * zoomFactor;
         newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
 
-        // Only apply if the change is meaningful (suppress micro-jitter)
         if (Math.abs(newZoom - this.zoomLevel) > 0.003) {
-          // Zoom toward the MIDPOINT between both fingers \u2014 professional behavior
-          const midX = (t1.clientX + t2.clientX) / 2;
-          const midY = (t1.clientY + t2.clientY) / 2;
-
-          // RAF-throttle to stay at 60fps and prevent layout thrash on rapid gestures
           if (!this._pinchRafPending) {
             this._pinchRafPending = true;
             requestAnimationFrame(() => {
@@ -287,7 +453,6 @@ class CanvasManager {
               this.setZoomToPoint(newZoom, midX, midY);
             });
           } else {
-            // Still update zoomLevel so next RAF picks up the latest value
             this.zoomLevel = newZoom;
           }
         }
@@ -300,14 +465,13 @@ class CanvasManager {
       if (e.touches.length < 2) {
         isPinching = false;
         prevPinchDistance = 0;
+        this._swipePageLocked = false;
       }
       if (e.touches.length === 0) {
-        // Restore user-select after all fingers lifted
         upperCanvas.style.userSelect = '';
         upperCanvas.style.webkitUserSelect = '';
         workspace.style.userSelect = '';
         workspace.style.webkitUserSelect = '';
-        // Restore marquee selection only on desktop
         if (this.activeTool === 'select' && window.innerWidth > 768) {
           this.canvas.selection = true;
         }

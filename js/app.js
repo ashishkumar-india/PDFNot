@@ -51,6 +51,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       this.bindShortcutsModal();
       this.bindGlobalKeyboardShortcuts();
       this.bindDragAndDrop();
+      this.bindVisualViewport();
+      this.initWorkspaceThemes();
+      this.initAutoSave();
 
       // Load Sample Document by default so user can test immediately!
       await this.loadSampleDocument();
@@ -196,6 +199,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       pdfEngine.setCurrentPageIndex(targetIndex);
       await this.renderCurrentPage();
+      this.scheduleAutoSave();
+    },
+
+    goToNextPage() {
+      if (pdfEngine.currentPageIndex < pdfEngine.pagesData.length - 1) {
+        canvasManager.triggerHaptic('medium');
+        this.switchToPage(pdfEngine.currentPageIndex + 1);
+        canvasManager.showToast(`📄 Page ${pdfEngine.currentPageIndex + 1} of ${pdfEngine.pagesData.length}`, 'info');
+      }
+    },
+
+    goToPrevPage() {
+      if (pdfEngine.currentPageIndex > 0) {
+        canvasManager.triggerHaptic('medium');
+        this.switchToPage(pdfEngine.currentPageIndex - 1);
+        canvasManager.showToast(`📄 Page ${pdfEngine.currentPageIndex + 1} of ${pdfEngine.pagesData.length}`, 'info');
+      }
     },
 
     async renderThumbnails() {
@@ -425,13 +445,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       // Undo / Redo
-      document.getElementById('btn-undo')?.addEventListener('click', () => canvasManager.undo());
-      document.getElementById('btn-redo')?.addEventListener('click', () => canvasManager.redo());
+      document.getElementById('btn-undo')?.addEventListener('click', () => {
+        canvasManager.triggerHaptic('light');
+        canvasManager.undo();
+      });
+      document.getElementById('btn-redo')?.addEventListener('click', () => {
+        canvasManager.triggerHaptic('light');
+        canvasManager.redo();
+      });
 
       // Zoom Controls
-      document.getElementById('btn-zoom-in')?.addEventListener('click', () => canvasManager.zoomIn());
-      document.getElementById('btn-zoom-out')?.addEventListener('click', () => canvasManager.zoomOut());
-      document.getElementById('btn-zoom-fit')?.addEventListener('click', () => canvasManager.zoomFit());
+      document.getElementById('btn-zoom-in')?.addEventListener('click', () => {
+        canvasManager.triggerHaptic('light');
+        canvasManager.zoomIn();
+      });
+      document.getElementById('btn-zoom-out')?.addEventListener('click', () => {
+        canvasManager.triggerHaptic('light');
+        canvasManager.zoomOut();
+      });
+      document.getElementById('btn-zoom-fit')?.addEventListener('click', () => {
+        canvasManager.triggerHaptic('medium');
+        canvasManager.zoomFit();
+      });
 
       // Quick Export Dropdown
       const btnExportOpt = document.getElementById('btn-export-options');
@@ -439,6 +474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (btnExportOpt && exportDropdown) {
         btnExportOpt.addEventListener('click', (e) => {
           e.stopPropagation();
+          canvasManager.triggerHaptic('light');
           exportDropdown.classList.toggle('show');
         });
 
@@ -457,6 +493,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const toolButtons = document.querySelectorAll('.floating-toolbar .tool-btn');
       toolButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+          canvasManager.triggerHaptic('light');
           const tool = btn.getAttribute('data-tool');
           if (!tool) return;
 
@@ -1409,6 +1446,142 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (err) {
         console.error("Image Export error:", err);
         alert("Failed to export image: " + err.message);
+      }
+    },
+
+    // ==================== WORKSPACE THEMES ====================
+
+    initWorkspaceThemes() {
+      const savedTheme = localStorage.getItem('ak_workspace_theme') || 'dark';
+      this.setWorkspaceTheme(savedTheme);
+
+      document.getElementById('btn-toggle-theme')?.addEventListener('click', () => {
+        canvasManager.triggerHaptic('light');
+        const themes = ['dark', 'slate', 'light'];
+        const current = localStorage.getItem('ak_workspace_theme') || 'dark';
+        const next = themes[(themes.indexOf(current) + 1) % themes.length];
+        this.setWorkspaceTheme(next);
+        canvasManager.showToast(`🎨 Theme: ${next.toUpperCase()}`, 'info');
+      });
+    },
+
+    setWorkspaceTheme(theme) {
+      document.body.classList.remove('theme-slate', 'theme-light');
+      if (theme === 'slate') document.body.classList.add('theme-slate');
+      if (theme === 'light') document.body.classList.add('theme-light');
+      localStorage.setItem('ak_workspace_theme', theme);
+    },
+
+    // ==================== VISUAL VIEWPORT (KEYBOARD) ====================
+
+    bindVisualViewport() {
+      if (!window.visualViewport) return;
+      const updateViewport = () => {
+        const vv = window.visualViewport;
+        const kbHeight = Math.max(0, window.innerHeight - vv.height);
+        document.documentElement.style.setProperty('--keyboard-height', `${kbHeight}px`);
+
+        const floatingToolbar = document.querySelector('.floating-toolbar');
+        if (floatingToolbar && window.innerWidth <= 768) {
+          if (kbHeight > 60) {
+            floatingToolbar.style.bottom = `calc(${kbHeight + 10}px + env(safe-area-inset-bottom, 0px))`;
+          } else {
+            floatingToolbar.style.bottom = '';
+          }
+        }
+      };
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
+    },
+
+    // ==================== AUTO-SAVE & RECOVERY ====================
+
+    initAutoSave() {
+      try {
+        const raw = localStorage.getItem('ak_edit_session_backup');
+        if (raw) {
+          const session = JSON.parse(raw);
+          if (session && session.pagesData && session.pagesData.length > 0 && session.hasEdits) {
+            const banner = document.getElementById('session-restore-banner');
+            const nameEl = document.getElementById('restore-session-name');
+            if (banner && nameEl) {
+              nameEl.textContent = session.filename || 'Document';
+              banner.style.display = 'flex';
+            }
+          }
+        }
+      } catch (e) {}
+
+      document.getElementById('btn-restore-session')?.addEventListener('click', async () => {
+        canvasManager.triggerHaptic('success');
+        await this.restoreAutoSavedSession();
+      });
+
+      document.getElementById('btn-dismiss-restore')?.addEventListener('click', () => {
+        canvasManager.triggerHaptic('light');
+        const banner = document.getElementById('session-restore-banner');
+        if (banner) banner.style.display = 'none';
+        localStorage.removeItem('ak_edit_session_backup');
+      });
+
+      canvasManager.canvas.on('object:modified', () => this.scheduleAutoSave());
+      canvasManager.canvas.on('object:added', () => this.scheduleAutoSave());
+      canvasManager.canvas.on('object:removed', () => this.scheduleAutoSave());
+    },
+
+    scheduleAutoSave() {
+      clearTimeout(this._autoSaveTimer);
+      this._autoSaveTimer = setTimeout(() => this.executeAutoSave(), 2000);
+    },
+
+    executeAutoSave() {
+      if (!pdfEngine.pagesData || pdfEngine.pagesData.length === 0) return;
+      try {
+        const curr = pdfEngine.getCurrentPage();
+        if (curr) curr.fabricJSON = canvasManager.savePageAnnotations();
+
+        const backupData = {
+          timestamp: Date.now(),
+          filename: document.getElementById('doc-filename')?.value || 'Document-Edit.pdf',
+          currentPageIndex: pdfEngine.currentPageIndex,
+          hasEdits: true,
+          pagesData: pdfEngine.pagesData.map(p => ({
+            pageIndex: p.pageIndex,
+            originalWidth: p.originalWidth,
+            originalHeight: p.originalHeight,
+            rotation: p.rotation || 0,
+            fabricJSON: p.fabricJSON || null
+          }))
+        };
+        localStorage.setItem('ak_edit_session_backup', JSON.stringify(backupData));
+      } catch (e) {}
+    },
+
+    async restoreAutoSavedSession() {
+      try {
+        const raw = localStorage.getItem('ak_edit_session_backup');
+        if (!raw) return;
+        const session = JSON.parse(raw);
+        const banner = document.getElementById('session-restore-banner');
+        if (banner) banner.style.display = 'none';
+
+        if (session.pagesData && session.pagesData.length > 0) {
+          session.pagesData.forEach(sp => {
+            if (pdfEngine.pagesData[sp.pageIndex]) {
+              pdfEngine.pagesData[sp.pageIndex].fabricJSON = sp.fabricJSON;
+              if (sp.rotation) pdfEngine.pagesData[sp.pageIndex].rotation = sp.rotation;
+            }
+          });
+          if (session.filename) {
+            document.getElementById('doc-filename').value = session.filename;
+          }
+          await this.renderCurrentPage();
+          this.renderThumbnails();
+          canvasManager.showToast('✨ Unsaved session restored successfully!', 'success');
+        }
+      } catch (err) {
+        console.error("Failed to restore session:", err);
+        canvasManager.showToast('Could not restore session', 'error');
       }
     },
 

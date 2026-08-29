@@ -17,8 +17,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
   
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/style.css?v=3.5">
-  <link rel="stylesheet" href="css/components.css?v=3.5">
+  <link rel="stylesheet" href="css/style.css?v=3.6">
+  <link rel="stylesheet" href="css/components.css?v=3.6">
 </head>
 <body class="dark-theme">
 
@@ -142,6 +142,10 @@
           </button>
         </div>
       </div>
+
+      <button id="btn-toggle-theme" class="btn-icon ml-1" title="Toggle Workspace Ambient Theme (Dark / Slate / Light)">
+        <i class="fa-solid fa-circle-half-stroke"></i>
+      </button>
 
       <button id="btn-keyboard-shortcuts" class="btn-icon ml-1" title="Keyboard Shortcuts (?)">
         <i class="fa-regular fa-circle-question"></i>
@@ -309,6 +313,18 @@
 
     <!-- CENTER WORKSPACE VIEWPORT -->
     <section class="canvas-workspace" id="canvas-workspace">
+      <!-- Session Restore Floating Banner -->
+      <div id="session-restore-banner" class="session-restore-banner" style="display: none;">
+        <div class="restore-banner-text">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>Unsaved session found: <strong id="restore-session-name">Document</strong></span>
+        </div>
+        <div class="restore-banner-btns">
+          <button id="btn-restore-session" class="btn btn-primary btn-xs"><i class="fa-solid fa-rotate-left"></i> Restore Work</button>
+          <button id="btn-dismiss-restore" class="btn btn-ghost btn-xs"><i class="fa-solid fa-xmark"></i> Dismiss</button>
+        </div>
+      </div>
+
       <!-- Loading Overlay -->
       <div class="canvas-loader" id="canvas-loader">
         <div class="spinner"></div>

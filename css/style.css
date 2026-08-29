@@ -788,6 +788,7 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
   overscroll-behavior: contain;
   /* Smooth scroll on iOS */
   scroll-behavior: auto;
+  transition: background 0.3s ease;
 }
 .canvas-workspace.hand-mode {
   cursor: grab;
@@ -795,6 +796,71 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
 }
 .canvas-workspace.hand-mode:active {
   cursor: grabbing;
+}
+
+/* Workspace Ambient Themes */
+body.theme-slate .canvas-workspace {
+  background: #162032;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+body.theme-light .canvas-workspace {
+  background: #e2e8f0;
+  background-image: 
+    radial-gradient(rgba(0, 0, 0, 0.12) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+body.theme-light .canvas-shadow-box {
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+}
+
+/* Session Restore Floating Banner */
+.session-restore-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(59, 130, 246, 0.6);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-lg), 0 0 20px var(--accent-primary-glow);
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 85;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: fadeInDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
+}
+.restore-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.restore-banner-text i {
+  color: var(--accent-primary);
+}
+.restore-banner-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 768px) {
+  .session-restore-banner {
+    width: calc(100% - 24px);
+    max-width: 440px;
+    border-radius: var(--radius-md);
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 14px;
+    white-space: normal;
+  }
 }
 
 /* Canvas Viewport */
