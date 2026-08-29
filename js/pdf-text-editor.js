@@ -66,10 +66,12 @@ class PDFTextEditor {
 
     canvas.on('mouse:down', (opt) => {
       if (!this.isTextEditMode) return;
-      if (this.canvasManager.activeTool !== 'select') return;
+      
+      const allowedTools = ['select', 'text', 'edit-pdf-text', 'signature', 'stamp'];
+      if (!allowedTools.includes(this.canvasManager.activeTool)) return;
 
-      // If clicking an existing interactive object on canvas, let Fabric handle it
-      if (opt.target) return;
+      // If clicking an existing editable IText, let Fabric handle focus and cursor editing
+      if (opt.target && opt.target.type === 'i-text') return;
 
       const pointer = canvas.getPointer(opt.e);
       const clickX = pointer.x;

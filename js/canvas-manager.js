@@ -667,7 +667,12 @@ class CanvasManager {
       this.canvas.add(img);
       this.canvas.setActiveObject(img);
       this.canvas.renderAll();
+      this.saveState();
       this.showToast('Signature added to page!', 'success');
+
+      if (this.uiManager) {
+        this.uiManager.activateTool('select');
+      }
     });
   }
 
