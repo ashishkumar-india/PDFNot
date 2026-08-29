@@ -839,9 +839,22 @@ class PDFTextEditor {
     textObj.selectAll();
     this.canvasManager.canvas.renderAll();
 
+    // Firmly preserve exact scroll and zoom position across asynchronous focus events
     if (workspace) {
       workspace.scrollLeft = prevScrollX;
       workspace.scrollTop = prevScrollY;
+      requestAnimationFrame(() => {
+        workspace.scrollLeft = prevScrollX;
+        workspace.scrollTop = prevScrollY;
+      });
+      setTimeout(() => {
+        workspace.scrollLeft = prevScrollX;
+        workspace.scrollTop = prevScrollY;
+      }, 50);
+      setTimeout(() => {
+        workspace.scrollLeft = prevScrollX;
+        workspace.scrollTop = prevScrollY;
+      }, 150);
     }
 
     this.canvasManager.saveState();

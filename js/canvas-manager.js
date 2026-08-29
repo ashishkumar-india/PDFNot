@@ -74,20 +74,34 @@ class CanvasManager {
       padding: 4
     });
 
-    // Prevent browser jumping/scrolling offscreen when Fabric focuses hidden textarea
+    // Prevent browser jumping/scrolling to (0, 0) when Fabric focuses hidden textarea
     fabric.IText.prototype.initHiddenTextarea = (function(orig) {
       return function() {
         orig.call(this);
         if (this.hiddenTextarea) {
           this.hiddenTextarea.style.position = 'fixed';
-          this.hiddenTextarea.style.top = '0';
-          this.hiddenTextarea.style.left = '0';
+          this.hiddenTextarea.style.top = '50vh';
+          this.hiddenTextarea.style.left = '50vw';
+          this.hiddenTextarea.style.width = '1px';
+          this.hiddenTextarea.style.height = '1px';
           this.hiddenTextarea.style.opacity = '0';
           this.hiddenTextarea.style.pointerEvents = 'none';
           this.hiddenTextarea.style.fontFamily = "'Noto Sans Devanagari', 'Mukta', 'Inter', sans-serif";
         }
       };
     })(fabric.IText.prototype.initHiddenTextarea);
+
+    // Lock textarea to current fixed viewport center so entering text editing never resets scroll/zoom position
+    fabric.IText.prototype._updateTextarea = function() {
+      if (!this.canvas || !this.hiddenTextarea) return;
+      this.hiddenTextarea.style.position = 'fixed';
+      this.hiddenTextarea.style.top = '50vh';
+      this.hiddenTextarea.style.left = '50vw';
+      this.hiddenTextarea.style.width = '1px';
+      this.hiddenTextarea.style.height = '1px';
+      this.hiddenTextarea.style.opacity = '0';
+      this.hiddenTextarea.style.pointerEvents = 'none';
+    };
 
     this.bindCanvasEvents();
     this.bindTouchEvents();
@@ -517,11 +531,25 @@ class CanvasManager {
       transparentCorners: false
     });
 
+    const workspace = document.getElementById('canvas-workspace');
+    const prevScrollX = workspace ? workspace.scrollLeft : 0;
+    const prevScrollY = workspace ? workspace.scrollTop : 0;
+
     this.canvas.add(textObj);
     this.canvas.setActiveObject(textObj);
     textObj.enterEditing();
     textObj.selectAll();
     this.canvas.renderAll();
+
+    if (workspace) {
+      workspace.scrollLeft = prevScrollX;
+      workspace.scrollTop = prevScrollY;
+      requestAnimationFrame(() => {
+        workspace.scrollLeft = prevScrollX;
+        workspace.scrollTop = prevScrollY;
+      });
+    }
+
     this.saveState();
     this.showToast('Text box added! Type your text now.', 'info');
 
