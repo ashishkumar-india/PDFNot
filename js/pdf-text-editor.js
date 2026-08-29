@@ -71,27 +71,24 @@ class PDFTextEditor {
       const clickX = pointer.x;
       const clickY = pointer.y;
 
-      // 1. Check if click hits any extracted text line bounding box
-      for (let i = 0; i < this.extractedLines.length; i++) {
-        const line = this.extractedLines[i];
-        if (
-          clickX >= line.x - 6 &&
-          clickX <= line.x + line.width + 6 &&
-          clickY >= line.y - 6 &&
-          clickY <= line.y + line.height + 6
-        ) {
-          this.convertLineToEditableText(line, i);
-          return;
+      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'pdf') {
+        // PDF mode: check if click hits any extracted text line bounding box
+        for (let i = 0; i < this.extractedLines.length; i++) {
+          const line = this.extractedLines[i];
+          if (
+            clickX >= line.x - 6 &&
+            clickX <= line.x + line.width + 6 &&
+            clickY >= line.y - 6 &&
+            clickY <= line.y + line.height + 6
+          ) {
+            this.convertLineToEditableText(line, i);
+            return;
+          }
         }
-      }
-
-      // 2. On image documents: if user clicks anywhere on the image in select mode, drop an instant editable text box!
-      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
-        const dynamicLine = this.detectLocalImageTextRegion(clickX, clickY);
-        if (dynamicLine) {
-          this.convertLineToEditableText(dynamicLine, -1);
-          return;
-        }
+      } else if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
+        // Image mode: place a clean text box at click position (paint-over style)
+        // Sample background color and erase beneath for seamless result
+        this._placeTextAtImageClick(clickX, clickY);
       }
     });
   }
@@ -322,28 +319,15 @@ class PDFTextEditor {
     if (!pageData) return;
 
     if (!this.pdfEngine.currentDoc || this.pdfEngine.currentDoc.type !== 'pdf' || !this.pdfEngine.currentDoc.pdfDocProxy) {
-      // For image docs: auto-enable text edit mode so click-to-edit works immediately
+      // For image docs: just enable click-to-add-text mode, no auto OCR or pixel scan
       if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
         if (!this.isTextEditMode) {
           this.isTextEditMode = true;
           const btnEditText = document.getElementById('btn-edit-pdf-text');
           if (btnEditText) btnEditText.classList.add('active');
         }
-
-        const docName = this.pdfEngine.currentDoc.name;
-
-        // Use cached OCR result if same document
-        if (this._ocrDocName === docName && this._ocrResultCache) {
-          this.extractedLines = this._ocrResultCache;
-          this.canvasManager.showToast(`✨ ${this._ocrResultCache.length} text lines ready — click to edit!`, 'success');
-          return;
-        }
-
-        // Run fast pixel scan first so clicks work immediately (fallback until OCR finishes)
-        this.extractedLines = this.scanImageTextLines();
-
-        // Auto-run OCR in background — non-blocking, updates extractedLines when done
-        this._runAutoOCRForImage(docName);
+        this.extractedLines = []; // No auto-detection overlays
+        this.canvasManager.showToast('🗑️ Click anywhere on the image to add/replace text!', 'info');
       }
       return;
     }
@@ -504,6 +488,78 @@ class PDFTextEditor {
       fontWeight: isBold ? 'bold' : 'normal',
       fontStyle: isItalic ? 'italic' : 'normal'
     };
+  }
+
+  /**
+   * Image mode: user clicks anywhere → clean editable text box at that position.
+   * Samples local background color and erases a strip beneath so text blends in.
+   * This is a reliable paint-over approach (no OCR noise, always works).
+   */
+  _placeTextAtImageClick(clickX, clickY) {
+    const canvas = this.canvasManager.canvas;
+    const bgImage = canvas.backgroundImage;
+
+    // Default styling
+    const defaultFontSize = 18;
+    const defaultFontFamily = "Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+    let textColor = '#1e293b';
+    let bgColor = 'transparent';
+
+    if (bgImage && bgImage._element) {
+      const imgEl = bgImage._element;
+      const scaleX = bgImage.scaleX || 1;
+      const scaleY = bgImage.scaleY || 1;
+      const imgW = imgEl.naturalWidth || imgEl.width;
+      const imgH = imgEl.naturalHeight || imgEl.height;
+
+      // Sample 30×30 pixel area around click to get dominant background color
+      const sampleX = Math.max(Math.round(clickX / scaleX) - 15, 0);
+      const sampleY = Math.max(Math.round(clickY / scaleY) - 8, 0);
+      const sampleW = Math.min(30, imgW - sampleX);
+      const sampleH = Math.min(16, imgH - sampleY);
+
+      if (sampleW > 0 && sampleH > 0) {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = imgW;
+        offCanvas.height = imgH;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.drawImage(imgEl, 0, 0);
+
+        // Get dominant background color via histogram
+        const pixels = offCtx.getImageData(sampleX, sampleY, sampleW, sampleH).data;
+        let rSum = 0, gSum = 0, bSum = 0, count = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i + 3] > 50) {
+            rSum += pixels[i]; gSum += pixels[i + 1]; bSum += pixels[i + 2]; count++;
+          }
+        }
+        if (count > 0) {
+          const r = Math.round(rSum / count);
+          const g = Math.round(gSum / count);
+          const b = Math.round(bSum / count);
+          bgColor = `rgb(${r},${g},${b})`;
+
+          // Pick contrasting text color
+          const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          textColor = luminance > 0.5 ? '#1e293b' : '#ffffff';
+        }
+      }
+    }
+
+    // Build a synthetic line object for _placeEditableText
+    const line = {
+      text: '',
+      x: clickX,
+      y: clickY - (defaultFontSize / 2),
+      width: 150,
+      height: defaultFontSize * 1.4,
+      fontSize: defaultFontSize,
+      fontFamily: defaultFontFamily,
+      fontWeight: 'normal',
+      fontStyle: 'normal'
+    };
+
+    this._placeEditableText(line, textColor, bgColor);
   }
 
   /**
