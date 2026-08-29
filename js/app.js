@@ -193,12 +193,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         container.appendChild(thumbItem);
 
-        pdfEngine.renderPageBackground(i).then(bgUrl => {
-          const previewWrap = document.getElementById(`thumb-preview-${i}`);
-          if (previewWrap) {
-            previewWrap.innerHTML = `<img src="${bgUrl}" alt="Page ${i + 1}">`;
-          }
-        });
+        pdfEngine.renderPageBackground(i)
+          .then(bgUrl => {
+            const previewWrap = document.getElementById(`thumb-preview-${i}`);
+            if (previewWrap) {
+              previewWrap.innerHTML = `<img src="${bgUrl}" alt="Page ${i + 1}">`;
+            }
+          })
+          .catch(err => console.warn(`Thumbnail render failed for page ${i + 1}:`, err));
       }
     },
 
@@ -226,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const newIdx = pdfEngine.addNewPage();
       this.renderThumbnails();
-      this.switchToPage(newIdx);
+      await this.switchToPage(newIdx);
       canvasManager.showToast('New blank page added', 'success');
     },
 
@@ -1123,25 +1125,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           const tempFabric = new fabric.Canvas(tempCanvasEl);
           
-          await new Promise(res => {
-            fabric.Image.fromURL(bgUrl, (img) => {
-              img.set({
-                originX: 'left', originY: 'top',
-                scaleX: tempCanvasEl.width / img.width,
-                scaleY: tempCanvasEl.height / img.height,
-                selectable: false
-              });
-              tempFabric.setBackgroundImage(img, res);
-            }, { crossOrigin: 'anonymous' });
-          });
+          try {
+            await new Promise(res => {
+              fabric.Image.fromURL(bgUrl, (img) => {
+                img.set({
+                  originX: 'left', originY: 'top',
+                  scaleX: tempCanvasEl.width / img.width,
+                  scaleY: tempCanvasEl.height / img.height,
+                  selectable: false
+                });
+                tempFabric.setBackgroundImage(img, res);
+              }, { crossOrigin: 'anonymous' });
+            });
 
-          if (pData.fabricJSON) {
-            await new Promise(res => tempFabric.loadFromJSON(pData.fabricJSON, res));
+            if (pData.fabricJSON) {
+              await new Promise(res => tempFabric.loadFromJSON(pData.fabricJSON, res));
+            }
+
+            const compositeUrl = tempFabric.toDataURL({ format: 'png', quality: 1.0, multiplier: 1.5 });
+            return compositeUrl;
+          } finally {
+            // Always dispose to prevent memory leaks, even if an error occurs
+            tempFabric.dispose();
           }
-
-          const compositeUrl = tempFabric.toDataURL({ format: 'png', quality: 1.0, multiplier: 1.5 });
-          tempFabric.dispose();
-          return compositeUrl;
         };
 
         const pdfBlob = await pdfEngine.exportAsPDF(getPageComposite);

@@ -221,7 +221,7 @@ class PDFEngine {
       return pageData.bgDataUrl;
     }
 
-    if (this.currentDoc.type === 'pdf' && this.currentDoc.pdfDocProxy) {
+    if (this.currentDoc && this.currentDoc.type === 'pdf' && this.currentDoc.pdfDocProxy) {
       const pdfPage = await this.currentDoc.pdfDocProxy.getPage(pageData.pageNum);
       
       // Calculate rotation
@@ -552,8 +552,9 @@ class PDFEngine {
       const imgBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
       const embeddedImage = await pdfDoc.embedPng(imgBytes);
 
-      const width = pageData.originalWidth || 595;
-      const height = pageData.originalHeight || 842;
+      // Use renderWidth/renderHeight (actual rendered pixel size) for accurate export dimensions
+      const width = pageData.renderWidth || pageData.originalWidth || 595;
+      const height = pageData.renderHeight || pageData.originalHeight || 842;
 
       // Handle orientation if rotated 90 or 270 deg
       const isSwapped = (pageData.rotation === 90 || pageData.rotation === 270);

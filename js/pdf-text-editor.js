@@ -9,7 +9,7 @@ class PDFTextEditor {
   constructor(canvasManager, pdfEngine) {
     this.canvasManager = canvasManager;
     this.pdfEngine = pdfEngine;
-    this.isTextEditMode = true;
+    this.isTextEditMode = false; // Starts off; user enables via button
     this.extractedLines = [];
     this.isOcrRunning = false;
 

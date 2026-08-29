@@ -153,7 +153,7 @@ class CanvasManager {
         this.canvas.freeDrawingBrush.width = parseInt(options.width) || 4;
         break;
 
-      case 'highlighter':
+      case 'highlighter': {
         this.canvas.isDrawingMode = true;
         this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
         // Semi-transparent yellow or custom color
@@ -161,6 +161,7 @@ class CanvasManager {
         this.canvas.freeDrawingBrush.color = this.hexToRgba(baseColor, 0.45);
         this.canvas.freeDrawingBrush.width = parseInt(options.width) || 20;
         break;
+      }
 
       case 'eraser':
         this.canvas.defaultCursor = 'crosshair';
@@ -390,11 +391,11 @@ class CanvasManager {
    * Adds Shapes (Rect, Circle, Arrow, Line, Star, Speech Bubble)
    */
   addShapeAtPosition(shapeType, x, y) {
-    const strokeColor = document.getElementById('brush-color-picker').value || '#3b82f6';
-    const strokeWidth = parseInt(document.getElementById('brush-width-slider').value) || 3;
-    const fillColor = document.getElementById('shape-fill-picker').value || '#3b82f6';
-    const cornerRadius = parseInt(document.getElementById('shape-corner-radius').value) || 0;
-    const isFillTrans = document.getElementById('btn-shape-fill-transparent').classList.contains('active');
+    const strokeColor = document.getElementById('brush-color-picker')?.value || '#3b82f6';
+    const strokeWidth = parseInt(document.getElementById('brush-width-slider')?.value) || 3;
+    const fillColor = document.getElementById('shape-fill-picker')?.value || '#3b82f6';
+    const cornerRadius = parseInt(document.getElementById('shape-corner-radius')?.value) || 0;
+    const isFillTrans = document.getElementById('btn-shape-fill-transparent')?.classList.contains('active') || false;
 
     const fill = isFillTrans ? 'transparent' : this.hexToRgba(fillColor, 0.2);
 
@@ -433,9 +434,9 @@ class CanvasManager {
         });
         break;
 
-      case 'arrow':
+      case 'arrow': {
         // Custom Arrow Group (Line + Arrowhead)
-        const line = new fabric.Line([0, 0, 140, 0], {
+        const arrowLine = new fabric.Line([0, 0, 140, 0], {
           stroke: strokeColor,
           strokeWidth: strokeWidth,
           originX: 'center',
@@ -451,15 +452,16 @@ class CanvasManager {
           originX: 'center',
           originY: 'center'
         });
-        shapeObj = new fabric.Group([line, triangle], {
+        shapeObj = new fabric.Group([arrowLine, triangle], {
           left: x,
           top: y
         });
         break;
+      }
 
-      case 'star':
-        const points = this.calculateStarPoints(5, 50, 25);
-        shapeObj = new fabric.Polygon(points, {
+      case 'star': {
+        const starPoints = this.calculateStarPoints(5, 50, 25);
+        shapeObj = new fabric.Polygon(starPoints, {
           left: x,
           top: y,
           fill: fill,
@@ -467,6 +469,7 @@ class CanvasManager {
           strokeWidth: strokeWidth
         });
         break;
+      }
 
       case 'bubble':
         const pathData = 'M 20 0 L 140 0 C 150 0 160 10 160 20 L 160 80 C 160 90 150 100 140 100 L 60 100 L 30 125 L 35 100 L 20 100 C 10 100 0 90 0 80 L 0 20 C 0 10 10 0 20 0 Z';
@@ -717,10 +720,15 @@ class CanvasManager {
     return new Promise((resolve) => {
       this.canvas.loadFromJSON(jsonObj, () => {
         if (currentBg) {
-          this.canvas.backgroundImage = currentBg;
+          // Use setBackgroundImage to properly re-register bg through Fabric's render queue
+          this.canvas.setBackgroundImage(currentBg, () => {
+            this.canvas.renderAll();
+            resolve(true);
+          });
+        } else {
+          this.canvas.renderAll();
+          resolve(true);
         }
-        this.canvas.renderAll();
-        resolve(true);
       });
     });
   }
@@ -825,17 +833,26 @@ class CanvasManager {
 
     // Sync Text Props
     if (obj.type === 'i-text' || obj.type === 'text') {
-      if (obj.fontFamily) document.getElementById('text-font-family').value = obj.fontFamily;
-      if (obj.fontSize) document.getElementById('text-font-size').value = obj.fontSize;
+      const fontFamilyEl = document.getElementById('text-font-family');
+      const fontSizeEl = document.getElementById('text-font-size');
+      const textColorPicker = document.getElementById('text-color-picker');
+      const textColorHex = document.getElementById('text-color-hex');
+      const btnBold = document.getElementById('btn-text-bold');
+      const btnItalic = document.getElementById('btn-text-italic');
+      const btnUnderline = document.getElementById('btn-text-underline');
+      const btnStrike = document.getElementById('btn-text-strike');
+
+      if (fontFamilyEl && obj.fontFamily) fontFamilyEl.value = obj.fontFamily;
+      if (fontSizeEl && obj.fontSize) fontSizeEl.value = obj.fontSize;
       if (obj.fill && typeof obj.fill === 'string') {
         const hexColor = this.rgbOrHexToHex(obj.fill);
-        document.getElementById('text-color-picker').value = hexColor;
-        document.getElementById('text-color-hex').textContent = hexColor.toUpperCase();
+        if (textColorPicker) textColorPicker.value = hexColor;
+        if (textColorHex) textColorHex.textContent = hexColor.toUpperCase();
       }
-      document.getElementById('btn-text-bold').classList.toggle('active', obj.fontWeight === 'bold');
-      document.getElementById('btn-text-italic').classList.toggle('active', obj.fontStyle === 'italic');
-      document.getElementById('btn-text-underline').classList.toggle('active', !!obj.underline);
-      document.getElementById('btn-text-strike').classList.toggle('active', !!obj.linethrough);
+      if (btnBold) btnBold.classList.toggle('active', obj.fontWeight === 'bold');
+      if (btnItalic) btnItalic.classList.toggle('active', obj.fontStyle === 'italic');
+      if (btnUnderline) btnUnderline.classList.toggle('active', !!obj.underline);
+      if (btnStrike) btnStrike.classList.toggle('active', !!obj.linethrough);
     }
 
     // Sync Shape Props
@@ -876,10 +893,12 @@ class CanvasManager {
     this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
     this.historyStack.push(json);
 
+    // Fix: Always increment index first, then trim overflow from front
+    // This prevents the off-by-one bug when maxHistory is exceeded
+    this.historyIndex++;
     if (this.historyStack.length > this.maxHistory) {
       this.historyStack.shift();
-    } else {
-      this.historyIndex++;
+      this.historyIndex = this.historyStack.length - 1;
     }
 
     this.updateHistoryButtons();

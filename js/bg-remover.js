@@ -67,14 +67,14 @@ class BackgroundRemover {
       const visited = new Uint8Array(w * h);
       const queue = [];
 
-      // Add all boundary pixels
+      // Add all boundary pixels (top row, bottom row, left col, right col)
       for (let x = 0; x < w; x++) {
-        queue.push((0 * w + x));
-        queue.push(((h - 1) * w + x));
+        queue.push(x);                  // top row: y=0
+        queue.push((h - 1) * w + x);   // bottom row: y=h-1
       }
       for (let y = 0; y < h; y++) {
-        queue.push((y * w + 0));
-        queue.push((y * w + (w - 1)));
+        queue.push(y * w);              // left col: x=0
+        queue.push(y * w + (w - 1));    // right col: x=w-1
       }
 
       while (queue.length > 0) {
