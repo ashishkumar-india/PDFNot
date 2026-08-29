@@ -135,13 +135,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         canvasManager.resetHistory();
 
         // Update Header Page Nav
-        document.getElementById('current-page-num').value = pageIndex + 1;
-        document.getElementById('current-page-num').max = totalPages;
-        document.getElementById('total-pages-count').textContent = totalPages;
-        document.getElementById('sidebar-page-count').textContent = totalPages;
+        const currPageInput = document.getElementById('current-page-num');
+        if (currPageInput) {
+          currPageInput.value = pageIndex + 1;
+          currPageInput.max = totalPages;
+        }
+        const totalPagesEl = document.getElementById('total-pages-count');
+        if (totalPagesEl) totalPagesEl.textContent = totalPages;
+        const sidebarPagesEl = document.getElementById('sidebar-page-count');
+        if (sidebarPagesEl) sidebarPagesEl.textContent = totalPages;
 
-        document.getElementById('btn-prev-page').disabled = (pageIndex === 0);
-        document.getElementById('btn-next-page').disabled = (pageIndex === totalPages - 1);
+        const btnPrev = document.getElementById('btn-prev-page');
+        if (btnPrev) btnPrev.disabled = (pageIndex === 0);
+        const btnNext = document.getElementById('btn-next-page');
+        if (btnNext) btnNext.disabled = (pageIndex === totalPages - 1);
 
         this.updateThumbnailsActiveState();
 
