@@ -89,6 +89,15 @@ class CanvasManager {
     this.canvas.on('selection:updated', (e) => this.handleSelection(e));
     this.canvas.on('selection:cleared', () => this.handleSelectionCleared());
 
+    // Hide context popup while actively typing/editing text so it never blocks the text line
+    this.canvas.on('text:editing:entered', () => {
+      const ctxBar = document.getElementById('floating-context-bar');
+      if (ctxBar) ctxBar.classList.remove('show');
+    });
+    this.canvas.on('text:editing:exited', (e) => {
+      if (e.target) this.positionFloatingContextBar(e.target);
+    });
+
     // Object Modification for Undo/Redo
     this.canvas.on('object:added', () => this.recordHistory());
     this.canvas.on('object:modified', () => this.recordHistory());
@@ -910,15 +919,35 @@ class CanvasManager {
 
   positionFloatingContextBar(obj) {
     const ctxBar = document.getElementById('floating-context-bar');
-    if (!ctxBar) return;
+    if (!ctxBar || !obj) return;
+
+    // Never show the floating popup while actively typing / editing text
+    if (obj.isEditing) {
+      ctxBar.classList.remove('show');
+      return;
+    }
 
     const bound = obj.getBoundingRect();
     const canvasWrap = document.getElementById('canvas-wrapper');
+    if (!canvasWrap) return;
     const wrapRect = canvasWrap.getBoundingClientRect();
-    const workspaceRect = document.getElementById('canvas-workspace').getBoundingClientRect();
+    const workspaceEl = document.getElementById('canvas-workspace');
+    if (!workspaceEl) return;
+    const workspaceRect = workspaceEl.getBoundingClientRect();
 
     const left = (wrapRect.left - workspaceRect.left) + (bound.left + bound.width / 2);
-    const top = (wrapRect.top - workspaceRect.top) + bound.top;
+    
+    // Position smartly: if object is near top of canvas (bound.top < 60), place toolbar BELOW the object so it never overlaps the text!
+    let top;
+    if (bound.top < 60) {
+      top = (wrapRect.top - workspaceRect.top) + bound.top + bound.height + 14;
+      ctxBar.style.transform = 'translate(-50%, 0)';
+      ctxBar.style.marginTop = '0px';
+    } else {
+      top = (wrapRect.top - workspaceRect.top) + bound.top - 12;
+      ctxBar.style.transform = 'translate(-50%, -100%)';
+      ctxBar.style.marginTop = '0px';
+    }
 
     ctxBar.style.left = `${left}px`;
     ctxBar.style.top = `${top}px`;
