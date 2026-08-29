@@ -271,13 +271,23 @@ class CanvasManager {
     this.zoomLevel = zoom;
     const viewport = document.getElementById('canvas-viewport');
     if (viewport) {
-      viewport.style.transform = `scale(${zoom})`;
-      viewport.style.transformOrigin = 'top center';
-      viewport.style.width = '';
-      viewport.style.height = '';
-      const shadowBox = viewport.querySelector('.canvas-shadow-box');
-      if (shadowBox) {
-        shadowBox.style.transform = 'none';
+      const pageW = this.canvas.getWidth();
+      const pageH = this.canvas.getHeight();
+      
+      if (pageW > 0 && pageH > 0) {
+        // Set exact scaled dimensions so the flex container centers it perfectly without huge invisible overflow margins
+        viewport.style.width = `${Math.round(pageW * zoom)}px`;
+        viewport.style.height = `${Math.round(pageH * zoom)}px`;
+        
+        const shadowBox = viewport.querySelector('.canvas-shadow-box');
+        if (shadowBox) {
+          shadowBox.style.transform = `scale(${zoom})`;
+          shadowBox.style.transformOrigin = 'top left';
+        }
+        viewport.style.transform = 'none';
+      } else {
+        viewport.style.transform = `scale(${zoom})`;
+        viewport.style.transformOrigin = 'top center';
       }
     }
     const zoomText = document.getElementById('zoom-level-text');
