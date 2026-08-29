@@ -385,8 +385,14 @@ class PDFTextEditor {
         });
       });
 
-      // Sort and merge adjacent text fragments on the same line with matching style
-      parsed.sort((a, b) => (Math.abs(a.y - b.y) > 5 ? a.y - b.y : a.x - b.x));
+      // Sort in strict 2D reading order: top-to-bottom lines (y), then left-to-right words (x)
+      parsed.sort((a, b) => {
+        const yDiff = a.y - b.y;
+        if (Math.abs(yDiff) > 6) {
+          return yDiff;
+        }
+        return a.x - b.x;
+      });
 
       const lines = [];
       let currentLine = null;
@@ -397,12 +403,15 @@ class PDFTextEditor {
           return;
         }
 
-        const isSameY = Math.abs(item.y - currentLine.y) < 5;
-        const isCloseX = (item.x - (currentLine.x + currentLine.width)) < (item.fontSize * 1.5);
+        const isSameY = Math.abs(item.y - currentLine.y) <= 8;
+        const gap = item.x - (currentLine.x + currentLine.width);
+        // Generously merge adjacent words on the same line into full coherent lines
+        const isCloseX = gap >= -8 && gap <= Math.max(item.fontSize * 3.5, 45);
         const isSameStyle = (item.fontFamily === currentLine.fontFamily && item.fontWeight === currentLine.fontWeight);
 
         if (isSameY && isCloseX && isSameStyle) {
-          currentLine.text += ' ' + item.text;
+          const needsSpace = !currentLine.text.endsWith(' ') && !item.text.startsWith(' ') && gap > 1;
+          currentLine.text += (needsSpace ? ' ' : '') + item.text;
           currentLine.width = (item.x + item.width) - currentLine.x;
           currentLine.height = Math.max(currentLine.height, item.height);
         } else {
@@ -691,10 +700,10 @@ class PDFTextEditor {
     const isImageDoc = (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image');
     offCtx.fillStyle = bgColor;
 
-    const erasePadX = isImageDoc ? 14 : 3;
-    const erasePadY = isImageDoc ? 8 : 2;
-    const eraseWidth = Math.max(iW + (erasePadX * 2), isImageDoc ? 220 : iW + 6);
-    const eraseHeight = Math.max(Math.round((line.fontSize * (isImageDoc ? 1.5 : 1.25)) / scaleY), isImageDoc ? 38 : 12);
+    const erasePadX = isImageDoc ? 14 : 6;
+    const erasePadY = isImageDoc ? 8 : 4;
+    const eraseWidth = Math.max(iW + (erasePadX * 2), isImageDoc ? 220 : iW + 12);
+    const eraseHeight = Math.max(Math.round((line.fontSize * (isImageDoc ? 1.5 : 1.35)) / scaleY), isImageDoc ? 38 : 16);
 
     offCtx.fillRect(
       Math.max(iX - erasePadX, 0),
