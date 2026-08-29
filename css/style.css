@@ -746,7 +746,7 @@ button, input, select, textarea {
   align-items: center;
   justify-content: flex-start;
   transform-origin: top center;
-  transition: transform 0.1s ease-out;
+  transition: none;
   padding-bottom: 50px;
 }
 

@@ -158,20 +158,23 @@ class CanvasManager {
     let isPinching = false;
     let initialPinchDistance = 0;
     let initialPinchZoom = 1;
+    let lastAppliedZoom = 1;
 
     const handleTouchStart = (e) => {
       // 2-FINGER PINCH-ZOOM: Capture cleanly before Fabric creates selection box
       if (e.touches.length >= 2) {
-        isPinching = true;
-        this.canvas.selection = false;
-
         const t1 = e.touches[0];
         const t2 = e.touches[1];
-        initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        initialPinchZoom = this.zoomLevel || 1;
-
-        e.preventDefault();
-        e.stopPropagation();
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        if (dist > 25) {
+          isPinching = true;
+          this.canvas.selection = false;
+          initialPinchDistance = dist;
+          initialPinchZoom = this.zoomLevel || 1;
+          lastAppliedZoom = initialPinchZoom;
+          e.preventDefault();
+          e.stopPropagation();
+        }
         return;
       }
 
@@ -186,20 +189,26 @@ class CanvasManager {
     };
 
     const handleTouchMove = (e) => {
-      // Stable, linear, non-accelerating 2-finger pinch zooming based on initial zoom
-      if (e.touches.length >= 2 && isPinching && initialPinchDistance > 10) {
+      // Stable, calm, linear 2-finger pinch zooming with deadzone threshold and step quantizer
+      if (e.touches.length >= 2 && isPinching && initialPinchDistance > 25) {
         e.preventDefault();
         e.stopPropagation();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         
-        if (currentDistance > 10) {
+        // 14px deadzone threshold to ignore finger tremor and accidental scrolls
+        if (Math.abs(currentDistance - initialPinchDistance) > 14) {
           const ratio = currentDistance / initialPinchDistance;
-          // Linear 0.70 scaling factor ensures gentle, calm, natural pinch response
-          const targetZoom = initialPinchZoom * (1 + (ratio - 1) * 0.70);
-          const clampedZoom = Math.min(Math.max(targetZoom, this.minZoom), this.maxZoom);
-          this.setZoom(parseFloat(clampedZoom.toFixed(2)));
+          // Calm 0.50 scaling factor: steady, controlled, natural zoom response
+          const rawTarget = initialPinchZoom * (1 + (ratio - 1) * 0.50);
+          const clamped = Math.min(Math.max(rawTarget, this.minZoom), this.maxZoom);
+          const roundedZoom = Math.round(clamped * 20) / 20;
+
+          if (Math.abs(roundedZoom - lastAppliedZoom) >= 0.05) {
+            lastAppliedZoom = roundedZoom;
+            this.setZoom(roundedZoom);
+          }
         }
         return;
       }
