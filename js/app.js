@@ -962,6 +962,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
 
     bindContextBarActions() {
+      // Replace Image from Context Bar
+      document.getElementById('ctx-replace-image')?.addEventListener('click', () => {
+        canvasManager.replaceSelectedImage();
+      });
+
+      // Replace Image from Inspector
+      document.getElementById('btn-inspector-replace-img')?.addEventListener('click', () => {
+        canvasManager.replaceSelectedImage();
+      });
+
+      // Delete Image from Inspector
+      document.getElementById('btn-inspector-delete-img')?.addEventListener('click', () => {
+        canvasManager.deleteSelectedObject();
+      });
+
       // 1-Click Remove BG from Context Bar
       document.getElementById('ctx-remove-bg')?.addEventListener('click', () => {
         canvasManager.removeSelectedImageBackground(35);

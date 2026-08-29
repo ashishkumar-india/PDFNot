@@ -327,6 +327,7 @@
       <!-- Quick Floating Mini Context Toolbar (appears near selected item) -->
       <div class="floating-context-bar" id="floating-context-bar">
         <button id="ctx-duplicate" class="ctx-btn" title="Duplicate (Ctrl+D)"><i class="fa-solid fa-clone"></i></button>
+        <button id="ctx-replace-image" class="ctx-btn text-warning" title="Replace Image File"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
         <button id="ctx-remove-bg" class="ctx-btn text-primary" title="🪄 Auto Remove Background"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
         <button id="ctx-bring-front" class="ctx-btn" title="Bring to Front"><i class="fa-solid fa-layer-group"></i></button>
         <button id="ctx-send-back" class="ctx-btn" title="Send to Back"><i class="fa-solid fa-arrow-down-short-wide"></i></button>
@@ -350,11 +351,14 @@
 
       <div class="inspector-content">
 
-        <!-- SECTION: IMAGE SPECIFIC (Auto Background Remover) -->
+        <!-- SECTION: IMAGE SPECIFIC (Controls & Auto Background Remover) -->
         <div class="prop-section" id="sec-image-bg-props" style="display:none;">
           <div class="prop-section-title">
-            <i class="fa-solid fa-wand-magic-sparkles text-primary"></i> Image AI Background
+            <i class="fa-solid fa-image text-primary"></i> Image Controls
           </div>
+          <button class="btn btn-warning btn-sm w-100 mb-2" id="btn-inspector-replace-img">
+            <i class="fa-solid fa-arrow-right-arrow-left"></i> Replace Image File
+          </button>
           <button class="btn btn-primary btn-sm w-100" id="btn-inspector-remove-bg">
             <i class="fa-solid fa-wand-magic-sparkles"></i> Auto Remove BG Now
           </button>
@@ -364,6 +368,9 @@
               <input type="range" id="inspector-bg-tol" min="5" max="95" value="35" class="form-range">
             </div>
           </div>
+          <button class="btn btn-danger btn-sm w-100 mt-2" id="btn-inspector-delete-img">
+            <i class="fa-solid fa-trash-can"></i> Delete Image
+          </button>
         </div>
 
         <!-- SECTION: TEXT PROPERTIES (Visible when text selected or text tool active) -->

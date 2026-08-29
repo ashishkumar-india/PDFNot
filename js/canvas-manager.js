@@ -1081,9 +1081,80 @@ class CanvasManager {
       ctxBar.style.marginTop = '0px';
     }
 
+    const btnReplaceImg = document.getElementById('ctx-replace-image');
+    if (btnReplaceImg) {
+      btnReplaceImg.style.display = (obj.type === 'image') ? 'flex' : 'none';
+    }
+    const btnRemoveBg = document.getElementById('ctx-remove-bg');
+    if (btnRemoveBg) {
+      btnRemoveBg.style.display = (obj.type === 'image') ? 'flex' : 'none';
+    }
+
     ctxBar.style.left = `${left}px`;
     ctxBar.style.top = `${top}px`;
     ctxBar.classList.add('show');
+  }
+
+  /**
+   * Prompts user for a new image file and replaces the active image in-place,
+   * preserving its exact dimensions, position, angle, and scale.
+   */
+  replaceSelectedImage() {
+    const activeObj = this.canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== 'image') {
+      this.showToast("Please select an image to replace.", "error");
+      return;
+    }
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/png,image/jpeg,image/webp,image/svg+xml';
+    fileInput.style.display = 'none';
+
+    fileInput.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const newSrc = ev.target.result;
+          const origW = activeObj.width * (activeObj.scaleX || 1);
+          const origH = activeObj.height * (activeObj.scaleY || 1);
+
+          activeObj.setSrc(newSrc, () => {
+            if (activeObj.width > 0 && activeObj.height > 0) {
+              activeObj.set({
+                scaleX: origW / activeObj.width,
+                scaleY: origH / activeObj.height
+              });
+            }
+            activeObj.setCoords();
+            this.canvas.renderAll();
+            this.saveState();
+            this.showToast("Image replaced successfully!", "success");
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+      fileInput.remove();
+    };
+
+    document.body.appendChild(fileInput);
+    fileInput.click();
+  }
+
+  /**
+   * Deletes the currently selected object on canvas and records history state
+   */
+  deleteSelectedObject() {
+    const activeObj = this.canvas.getActiveObject();
+    if (activeObj) {
+      this.canvas.remove(activeObj);
+      this.canvas.discardActiveObject();
+      this.canvas.renderAll();
+      this.saveState();
+      document.getElementById('floating-context-bar')?.classList.remove('show');
+      this.showToast("Object deleted", "info");
+    }
   }
 
   syncInspectorWithOptions(obj) {

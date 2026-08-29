@@ -85,7 +85,25 @@ class PDFTextEditor {
           this.extractTextFromCurrentPage();
         }
 
-        // Find if click hits any PDF text line bounding box
+        const pageData = this.pdfEngine.getCurrentPage();
+
+        // 1.1 Check if click hits an embedded PDF image
+        if (pageData && pageData.extractedImages && pageData.extractedImages.length > 0) {
+          for (let i = 0; i < pageData.extractedImages.length; i++) {
+            const img = pageData.extractedImages[i];
+            if (
+              clickX >= img.left - 4 &&
+              clickX <= img.left + img.width + 4 &&
+              clickY >= img.top - 4 &&
+              clickY <= img.top + img.height + 4
+            ) {
+              this.convertImageToEditableObject(img, i);
+              return;
+            }
+          }
+        }
+
+        // 1.2 Find if click hits any PDF text line bounding box
         for (let i = 0; i < this.extractedLines.length; i++) {
           const line = this.extractedLines[i];
           if (
@@ -445,6 +463,15 @@ class PDFTextEditor {
         lines.push(currentLine);
       }
       this.extractedLines = lines;
+
+      // Extract embedded PDF images so they can be clicked, replaced, resized, or deleted
+      if (!pageData.extractedImages || pageData.extractedImages.length === 0) {
+        try {
+          await this.pdfEngine.extractImagesFromPage(pageData);
+        } catch (imgErr) {
+          console.warn("Could not extract embedded images:", imgErr);
+        }
+      }
     } catch (err) {
       console.error("Error extracting PDF text:", err);
     }
@@ -837,6 +864,133 @@ class PDFTextEditor {
 
     this.canvasManager.saveState();
     this.canvasManager.showToast('Text ready to edit! Type or move.', 'success');
+  }
+
+  /**
+   * Converts an embedded PDF image into an interactive fabric.Image,
+   * erases the background image underneath, and selects it with transform handles.
+   */
+  async convertImageToEditableObject(imgData, index) {
+    const pageData = this.pdfEngine.getCurrentPage();
+    if (pageData && pageData.extractedImages) {
+      pageData.extractedImages.splice(index, 1);
+    }
+
+    // 1. Cleanly erase image from background raster
+    await this.eraseImageUnderlyingBackground(imgData.left, imgData.top, imgData.width, imgData.height);
+
+    // 2. Create interactive fabric.Image
+    fabric.Image.fromURL(imgData.dataUrl, (fabricImg) => {
+      const scaleX = fabricImg.width > 0 ? imgData.width / fabricImg.width : 1;
+      const scaleY = fabricImg.height > 0 ? imgData.height / fabricImg.height : 1;
+
+      fabricImg.set({
+        left: imgData.left,
+        top: imgData.top,
+        scaleX: scaleX,
+        scaleY: scaleY,
+        selectable: true,
+        evented: true,
+        hasControls: true,
+        hasBorders: true,
+        cornerColor: '#3b82f6',
+        cornerStrokeColor: '#ffffff',
+        borderColor: '#3b82f6',
+        cornerSize: 10,
+        transparentCorners: false
+      });
+
+      this.canvasManager.canvas.discardActiveObject();
+      this.canvasManager.canvas.add(fabricImg);
+      this.canvasManager.canvas.setActiveObject(fabricImg);
+      this.canvasManager.canvas.renderAll();
+      this.canvasManager.saveState();
+      this.canvasManager.showToast('Image selected! You can now move, resize, replace, or delete it.', 'success');
+    }, { crossOrigin: 'anonymous' });
+  }
+
+  /**
+   * Cleanly in-paints and erases an image rectangle from the underlying page background image
+   */
+  async eraseImageUnderlyingBackground(x, y, w, h) {
+    const bgImg = this.canvasManager.canvas.backgroundImage;
+    if (!bgImg || !bgImg._element) return;
+
+    const imgEl = bgImg._element;
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = imgEl.naturalWidth || imgEl.width;
+    offCanvas.height = imgEl.naturalHeight || imgEl.height;
+    const offCtx = offCanvas.getContext('2d');
+    offCtx.drawImage(imgEl, 0, 0);
+
+    const canvasW = this.canvasManager.canvas.getWidth();
+    const canvasH = this.canvasManager.canvas.getHeight();
+    const scaleX = (offCanvas.width / canvasW) || 1;
+    const scaleY = (offCanvas.height / canvasH) || 1;
+
+    const iX = Math.round(x * scaleX);
+    const iY = Math.round(y * scaleY);
+    const iW = Math.round(w * scaleX);
+    const iH = Math.round(h * scaleY);
+
+    // Sample surrounding page background color around the 4 borders of the image
+    const bgSample = this.sampleSurroundingBgColor(offCtx, iX, iY, iW, iH, offCanvas.width, offCanvas.height);
+    offCtx.fillStyle = `rgb(${bgSample.r}, ${bgSample.g}, ${bgSample.b})`;
+    offCtx.fillRect(iX, iY, iW, iH);
+
+    const updatedBgDataUrl = offCanvas.toDataURL('image/png');
+    await this.canvasManager.setPageBackground(updatedBgDataUrl, canvasW, canvasH);
+    
+    // Save to pageData
+    const pageData = this.pdfEngine.getCurrentPage();
+    if (pageData) {
+      if (!pageData.fabricJSON) pageData.fabricJSON = {};
+      pageData.fabricJSON.customBgDataUrl = updatedBgDataUrl;
+    }
+  }
+
+  /**
+   * Samples dominant background color from surrounding boundary pixels
+   */
+  sampleSurroundingBgColor(ctx, x, y, w, h, maxW, maxH) {
+    const samples = [];
+    const step = 4;
+    // Top & bottom borders
+    for (let px = Math.max(0, x); px < Math.min(x + w, maxW); px += step) {
+      if (y - 4 >= 0) {
+        const d = ctx.getImageData(px, y - 4, 1, 1).data;
+        samples.push({ r: d[0], g: d[1], b: d[2] });
+      }
+      if (y + h + 4 < maxH) {
+        const d = ctx.getImageData(px, y + h + 4, 1, 1).data;
+        samples.push({ r: d[0], g: d[1], b: d[2] });
+      }
+    }
+    // Left & right borders
+    for (let py = Math.max(0, y); py < Math.min(y + h, maxH); py += step) {
+      if (x - 4 >= 0) {
+        const d = ctx.getImageData(x - 4, py, 1, 1).data;
+        samples.push({ r: d[0], g: d[1], b: d[2] });
+      }
+      if (x + w + 4 < maxW) {
+        const d = ctx.getImageData(x + w + 4, py, 1, 1).data;
+        samples.push({ r: d[0], g: d[1], b: d[2] });
+      }
+    }
+
+    if (samples.length === 0) return { r: 255, g: 255, b: 255 };
+
+    let rSum = 0, gSum = 0, bSum = 0;
+    samples.forEach(s => {
+      rSum += s.r;
+      gSum += s.g;
+      bSum += s.b;
+    });
+    return {
+      r: Math.round(rSum / samples.length),
+      g: Math.round(gSum / samples.length),
+      b: Math.round(bSum / samples.length)
+    };
   }
 
   /**
