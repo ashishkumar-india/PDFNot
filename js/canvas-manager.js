@@ -57,6 +57,20 @@ class CanvasManager {
       padding: 4
     });
 
+    // Prevent browser jumping/scrolling offscreen when Fabric focuses hidden textarea
+    fabric.IText.prototype.initHiddenTextarea = (function(orig) {
+      return function() {
+        orig.call(this);
+        if (this.hiddenTextarea) {
+          this.hiddenTextarea.style.position = 'fixed';
+          this.hiddenTextarea.style.top = '0';
+          this.hiddenTextarea.style.left = '0';
+          this.hiddenTextarea.style.opacity = '0';
+          this.hiddenTextarea.style.pointerEvents = 'none';
+        }
+      };
+    })(fabric.IText.prototype.initHiddenTextarea);
+
     this.bindCanvasEvents();
   }
 
@@ -257,7 +271,20 @@ class CanvasManager {
     this.zoomLevel = zoom;
     const viewport = document.getElementById('canvas-viewport');
     if (viewport) {
-      viewport.style.transform = `scale(${zoom})`;
+      const pageW = this.canvas.getWidth();
+      const pageH = this.canvas.getHeight();
+      if (pageW > 0 && pageH > 0) {
+        viewport.style.width = `${Math.round(pageW * zoom)}px`;
+        viewport.style.height = `${Math.round(pageH * zoom)}px`;
+        const shadowBox = viewport.querySelector('.canvas-shadow-box');
+        if (shadowBox) {
+          shadowBox.style.transform = `scale(${zoom})`;
+          shadowBox.style.transformOrigin = 'top left';
+        }
+        viewport.style.transform = 'none';
+      } else {
+        viewport.style.transform = `scale(${zoom})`;
+      }
     }
     const zoomText = document.getElementById('zoom-level-text');
     if (zoomText) {

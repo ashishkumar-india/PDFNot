@@ -683,13 +683,23 @@ class PDFTextEditor {
       }
     }
 
+    const workspace = document.getElementById('canvas-workspace');
+    const prevScrollX = workspace ? workspace.scrollLeft : 0;
+    const prevScrollY = workspace ? workspace.scrollTop : 0;
+
     this.canvasManager.canvas.add(textObj);
     this.canvasManager.canvas.setActiveObject(textObj);
     textObj.enterEditing();
     textObj.selectAll();
     this.canvasManager.canvas.renderAll();
+
+    if (workspace) {
+      workspace.scrollLeft = prevScrollX;
+      workspace.scrollTop = prevScrollY;
+    }
+
     this.canvasManager.saveState();
-    this.canvasManager.showToast('Text converted! Type to edit or drag to move.', 'success');
+    this.canvasManager.showToast('Text ready to edit! Type or move.', 'success');
   }
 
   /**
