@@ -696,6 +696,8 @@ class PDFTextEditor {
           textColor = `rgb(${dominantGlyph.r}, ${dominantGlyph.g}, ${dominantGlyph.b})`;
         }
       }
+    }
+
     // ── 3. CLEANLY ERASE ORIGINAL TEXT FROM BACKGROUND IMAGE ──
     const isImageDoc = (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image');
     offCtx.fillStyle = bgColor;
