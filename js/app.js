@@ -35,6 +35,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Export Hub state
     selectedExportFormat: 'pdf', // 'pdf' | 'png' | 'jpeg'
 
+    // Zoom state: only auto-fit on first document load, preserve user zoom after
+    _isFirstLoad: true,
+
     async init() {
       canvasManager.uiManager = this;
       this.bindHeaderActions();
@@ -56,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async loadSampleDocument() {
       this.showLoader("Generating Sample Document...");
+      this._isFirstLoad = true; // New document — reset zoom on load
       try {
         const sampleBytes = await SampleData.createSamplePDFBytes();
         await pdfEngine.loadPDF(sampleBytes, 'AK-Edit-Sample-Agreement.pdf');
@@ -76,6 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async handleFileUpload(file) {
       if (!file) return;
       this.showLoader(`Loading ${file.name}...`);
+      this._isFirstLoad = true; // New document — reset zoom on load
       try {
         const filename = file.name;
         document.getElementById('doc-filename').value = filename;
@@ -139,7 +144,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btn-next-page').disabled = (pageIndex === totalPages - 1);
 
         this.updateThumbnailsActiveState();
-        setTimeout(() => canvasManager.zoomFit(), 100);
+
+        // Only auto-fit zoom on first load of a new document.
+        // After that, preserve whatever zoom level the user has set.
+        if (this._isFirstLoad) {
+          this._isFirstLoad = false;
+          setTimeout(() => canvasManager.zoomFit(), 100);
+        }
 
         // Extract text bounding boxes for click-to-edit detection
         setTimeout(() => pdfTextEditor.extractTextFromCurrentPage(), 150);
