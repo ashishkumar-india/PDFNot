@@ -858,6 +858,7 @@ class PDFTextEditor {
     }
 
     this.canvasManager.saveState();
+    this.canvasManager.showInlineTextEditorPopup(textObj);
     this.canvasManager.showToast('Text ready to edit! Type or move.', 'success');
   }
 

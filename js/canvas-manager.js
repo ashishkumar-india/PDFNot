@@ -363,7 +363,7 @@ class CanvasManager {
         return;
       }
 
-      // 1-FINGER TOUCH (Smooth 1-Finger Panning)
+      // 1-FINGER TOUCH (Accurate Object Hit-Testing & Smooth Panning)
       if (e.touches.length === 1) {
         isPinching = false;
         upperCanvas.style.userSelect = '';
@@ -384,20 +384,51 @@ class CanvasManager {
 
         cancelAnimationFrame(this._inertiaRafId);
 
-        // Determine if this single-finger touch should pan the workspace
+        // Accurate touch hit detection on Fabric objects:
+        const rect = upperCanvas.getBoundingClientRect();
+        const touchX = touch.clientX - rect.left;
+        const touchY = touch.clientY - rect.top;
+        const zoom = this.zoomLevel || 1.0;
+        const pointer = {
+          x: touchX / zoom,
+          y: touchY / zoom
+        };
+
+        // Check if an interactive object was touched:
+        let hitObj = null;
+        const activeObj = this.canvas.getActiveObject();
+        if (activeObj && activeObj.containsPoint && activeObj.containsPoint(pointer)) {
+          hitObj = activeObj;
+        } else {
+          const objs = this.canvas.getObjects();
+          for (let i = objs.length - 1; i >= 0; i--) {
+            const o = objs[i];
+            if (o.visible && o.evented && o.containsPoint && o.containsPoint(pointer)) {
+              hitObj = o;
+              break;
+            }
+          }
+        }
+
         if (this.canvas.isDrawingMode) {
           is1FingerPanning = false;
         } else if (this.activeTool === 'hand') {
           is1FingerPanning = true;
-        } else {
-          // If in select / text-edit mode, pan when touching empty space or background
-          const target = this.canvas.findTarget(e);
-          const hasActiveText = this.isEditingText();
-          if (!target && !hasActiveText) {
-            is1FingerPanning = true;
-          } else {
-            is1FingerPanning = false;
+        } else if (hitObj) {
+          // User touched an object (image, text, shape, signature, stamp) -> let Fabric drag/move/edit it
+          is1FingerPanning = false;
+          this.canvas.setActiveObject(hitObj);
+          this.canvas.requestRenderAll();
+          this.positionFloatingContextBar(hitObj);
+          if (hitObj.type === 'i-text') {
+            this.showInlineTextEditorPopup(hitObj);
           }
+        } else {
+          // User touched empty space -> pan the workspace smoothly
+          is1FingerPanning = true;
+          this.canvas.discardActiveObject();
+          this.canvas.requestRenderAll();
+          this.hideInlineTextEditorPopup();
         }
       }
     };
@@ -1390,6 +1421,12 @@ class CanvasManager {
 
     this.positionFloatingContextBar(obj);
     this.syncInspectorWithOptions(obj);
+
+    if (obj.type === 'i-text') {
+      this.showInlineTextEditorPopup(obj);
+    } else {
+      this.hideInlineTextEditorPopup();
+    }
   }
 
   handleSelectionCleared() {
@@ -1397,6 +1434,93 @@ class CanvasManager {
     if (ctxBar) ctxBar.classList.remove('show');
     const imgBgSec = document.getElementById('sec-image-bg-props');
     if (imgBgSec) imgBgSec.style.display = 'none';
+    this.hideInlineTextEditorPopup();
+  }
+
+  /**
+   * Shows a floating HTML input popup for precision text editing (allows cursor anywhere, mid-sentence word edits, selection)
+   */
+  showInlineTextEditorPopup(textObj) {
+    let popup = document.getElementById('inline-text-editor-popup');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'inline-text-editor-popup';
+      popup.className = 'inline-text-editor-popup';
+      popup.innerHTML = `
+        <input type="text" class="inline-edit-input" id="inline-text-input" placeholder="Type or edit text here..." autocomplete="off">
+        <button class="btn-inline-apply" id="btn-inline-apply" title="Apply Edit"><i class="fa-solid fa-check"></i> Done</button>
+        <button class="btn-inline-close" id="btn-inline-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      `;
+      document.getElementById('canvas-workspace')?.appendChild(popup);
+
+      const input = popup.querySelector('#inline-text-input');
+      const btnApply = popup.querySelector('#btn-inline-apply');
+      const btnClose = popup.querySelector('#btn-inline-close');
+
+      // Live update text on canvas as user types in input box
+      input.addEventListener('input', () => {
+        const active = this.canvas.getActiveObject();
+        if (active && active.type === 'i-text') {
+          active.set('text', input.value);
+          this.canvas.renderAll();
+        }
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.hideInlineTextEditorPopup();
+        }
+      });
+
+      btnApply.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.hideInlineTextEditorPopup();
+        this.recordHistory();
+      });
+
+      btnClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.hideInlineTextEditorPopup();
+      });
+    }
+
+    const input = popup.querySelector('#inline-text-input');
+    if (input) {
+      input.value = textObj.text || '';
+    }
+
+    // Position popup directly above or below text
+    const bound = textObj.getBoundingRect();
+    const canvasWrap = document.getElementById('canvas-wrapper');
+    const workspaceEl = document.getElementById('canvas-workspace');
+    if (canvasWrap && workspaceEl) {
+      const wrapRect = canvasWrap.getBoundingClientRect();
+      const wsRect = workspaceEl.getBoundingClientRect();
+      const zoom = this.zoomLevel || 1.0;
+
+      const left = (wrapRect.left - wsRect.left) + ((bound.left + bound.width / 2) * zoom);
+      let top = (wrapRect.top - wsRect.top) + (bound.top * zoom) - 52;
+      if (top < 10) {
+        top = (wrapRect.top - wsRect.top) + ((bound.top + bound.height) * zoom) + 14;
+      }
+
+      popup.style.left = `${Math.max(10, left)}px`;
+      popup.style.top = `${Math.max(10, top)}px`;
+      popup.style.transform = 'translateX(-50%)';
+      popup.style.display = 'flex';
+
+      setTimeout(() => {
+        input?.focus();
+      }, 60);
+    }
+  }
+
+  hideInlineTextEditorPopup() {
+    const popup = document.getElementById('inline-text-editor-popup');
+    if (popup) {
+      popup.style.display = 'none';
+    }
   }
 
   positionFloatingContextBar(obj) {
