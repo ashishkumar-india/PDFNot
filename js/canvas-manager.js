@@ -1419,13 +1419,16 @@ class CanvasManager {
     const obj = e.selected ? e.selected[0] : this.canvas.getActiveObject();
     if (!obj) return;
 
-    this.positionFloatingContextBar(obj);
     this.syncInspectorWithOptions(obj);
 
     if (obj.type === 'i-text') {
+      // Hide the generic context bar so it doesn't block text
+      const ctxBar = document.getElementById('floating-context-bar');
+      if (ctxBar) ctxBar.classList.remove('show');
       this.showInlineTextEditorPopup(obj);
     } else {
       this.hideInlineTextEditorPopup();
+      this.positionFloatingContextBar(obj);
     }
   }
 
@@ -1447,7 +1450,7 @@ class CanvasManager {
       popup.id = 'inline-text-editor-popup';
       popup.className = 'inline-text-editor-popup';
       popup.innerHTML = `
-        <input type="text" class="inline-edit-input" id="inline-text-input" placeholder="Type or edit text here..." autocomplete="off">
+        <input type="text" class="inline-edit-input" id="inline-text-input" placeholder="Type or edit text here..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button class="btn-inline-apply" id="btn-inline-apply" title="Apply Edit"><i class="fa-solid fa-check"></i> Done</button>
         <button class="btn-inline-close" id="btn-inline-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
       `;
@@ -1470,6 +1473,7 @@ class CanvasManager {
         if (e.key === 'Enter') {
           e.preventDefault();
           this.hideInlineTextEditorPopup();
+          this.recordHistory();
         }
       });
 
@@ -1490,30 +1494,37 @@ class CanvasManager {
       input.value = textObj.text || '';
     }
 
-    // Position popup directly above or below text
-    const bound = textObj.getBoundingRect();
-    const canvasWrap = document.getElementById('canvas-wrapper');
-    const workspaceEl = document.getElementById('canvas-workspace');
-    if (canvasWrap && workspaceEl) {
-      const wrapRect = canvasWrap.getBoundingClientRect();
-      const wsRect = workspaceEl.getBoundingClientRect();
-      const zoom = this.zoomLevel || 1.0;
-
-      const left = (wrapRect.left - wsRect.left) + ((bound.left + bound.width / 2) * zoom);
-      let top = (wrapRect.top - wsRect.top) + (bound.top * zoom) - 52;
-      if (top < 10) {
-        top = (wrapRect.top - wsRect.top) + ((bound.top + bound.height) * zoom) + 14;
-      }
-
-      popup.style.left = `${Math.max(10, left)}px`;
-      popup.style.top = `${Math.max(10, top)}px`;
-      popup.style.transform = 'translateX(-50%)';
+    // Position popup: On mobile, dock cleanly at bottom / above keyboard. On desktop, place near text.
+    if (window.innerWidth <= 768) {
+      popup.style.left = '';
+      popup.style.top = '';
+      popup.style.transform = '';
       popup.style.display = 'flex';
+    } else {
+      const bound = textObj.getBoundingRect();
+      const canvasWrap = document.getElementById('canvas-wrapper');
+      const workspaceEl = document.getElementById('canvas-workspace');
+      if (canvasWrap && workspaceEl) {
+        const wrapRect = canvasWrap.getBoundingClientRect();
+        const wsRect = workspaceEl.getBoundingClientRect();
+        const zoom = this.zoomLevel || 1.0;
 
-      setTimeout(() => {
-        input?.focus();
-      }, 60);
+        const left = (wrapRect.left - wsRect.left) + ((bound.left + bound.width / 2) * zoom);
+        let top = (wrapRect.top - wsRect.top) + (bound.top * zoom) - 54;
+        if (top < 10) {
+          top = (wrapRect.top - wsRect.top) + ((bound.top + bound.height) * zoom) + 14;
+        }
+
+        popup.style.left = `${Math.max(10, left)}px`;
+        popup.style.top = `${Math.max(10, top)}px`;
+        popup.style.transform = 'translateX(-50%)';
+        popup.style.display = 'flex';
+      }
     }
+
+    setTimeout(() => {
+      input?.focus();
+    }, 60);
   }
 
   hideInlineTextEditorPopup() {
