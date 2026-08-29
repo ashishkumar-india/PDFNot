@@ -1038,11 +1038,23 @@ label {
 @media (max-width: 992px) {
   :root {
     --sidebar-width: 240px;
-    --inspector-width: 290px;
+    --inspector-width: 300px;
   }
 
   .mobile-toggle-btn {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: var(--text-primary);
+  }
+  .mobile-toggle-btn:active {
+    background: var(--color-primary);
+    color: #fff;
   }
 
   .file-actions span,
@@ -1113,7 +1125,7 @@ label {
 /* 3. Mobile Phones (max-width: 768px) */
 @media (max-width: 768px) {
   :root {
-    --header-height: 52px;
+    --header-height: 50px;
   }
 
   .app-header {
@@ -1132,7 +1144,7 @@ label {
     font-size: 13px;
   }
   .app-logo {
-    gap: 6px;
+    gap: 4px;
   }
   .logo-icon {
     width: 28px;
@@ -1170,51 +1182,78 @@ label {
   }
 
   .export-group .btn-success {
-    padding: 5px 8px;
-    font-size: 11px;
+    padding: 6px 10px;
+    font-size: 12px;
   }
 
   /* Floating Toolbar on Mobile - Horizontal Bottom Dock */
   .floating-toolbar {
     position: fixed;
-    bottom: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     top: auto;
     left: 50%;
     transform: translateX(-50%);
     flex-direction: row;
-    padding: 6px 10px;
+    padding: 5px 8px;
     border-radius: var(--radius-full);
-    background: rgba(15, 23, 42, 0.95);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.85);
+    background: rgba(15, 23, 42, 0.97);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.9);
     z-index: 70;
     max-width: 96vw;
+    width: auto;
     overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    gap: 2px;
+  }
+  .floating-toolbar::-webkit-scrollbar {
+    display: none;
   }
   .floating-toolbar .tool-group {
     flex-direction: row;
-    gap: 4px;
+    gap: 3px;
+    flex-shrink: 0;
   }
   .floating-toolbar .tool-separator {
     width: 1px;
     height: 22px;
     margin: 0 4px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.12);
   }
   .tool-btn {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
+    width: 38px;
+    height: 38px;
+    font-size: 15px;
     flex-shrink: 0;
+    border-radius: 10px;
   }
   .tool-btn .tool-tip {
     display: none !important;
   }
 
+  /* Shapes popup opens upwards on mobile */
+  .shapes-flyout {
+    bottom: calc(100% + 10px);
+    top: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: column;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
   .canvas-workspace {
-    padding: 10px;
-    padding-bottom: 74px; /* Space for horizontal floating bottom dock */
+    padding: 8px 4px 78px 4px;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y pinch-zoom;
   }
 
   .canvas-sheet-wrapper {
@@ -1222,20 +1261,28 @@ label {
   }
 
   /* Responsive Modals */
-  .modal-dialog {
-    width: 94vw !important;
-    max-width: 94vw !important;
-    margin: 12px auto;
-    max-height: 90vh;
+  .modal-card {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: auto;
+    max-height: 92vh !important;
     border-radius: var(--radius-lg);
   }
   .modal-body {
     padding: 12px;
-    max-height: calc(90vh - 120px);
+    max-height: calc(92vh - 120px);
     overflow-y: auto;
   }
-  .signature-pad-container {
+  .sig-pad-container {
     height: 180px !important;
+    width: 100%;
+  }
+  .bg-modal-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .preview-panels-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1257,8 +1304,8 @@ label {
     padding: 4px 6px;
   }
   .tool-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 13px;
+    width: 35px;
+    height: 35px;
+    font-size: 14px;
   }
 }
