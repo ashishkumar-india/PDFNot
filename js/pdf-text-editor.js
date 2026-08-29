@@ -85,25 +85,7 @@ class PDFTextEditor {
           this.extractTextFromCurrentPage();
         }
 
-        const pageData = this.pdfEngine.getCurrentPage();
-
-        // 1.1 Check if click hits an embedded PDF image
-        if (pageData && pageData.extractedImages && pageData.extractedImages.length > 0) {
-          for (let i = 0; i < pageData.extractedImages.length; i++) {
-            const img = pageData.extractedImages[i];
-            if (
-              clickX >= img.left - 4 &&
-              clickX <= img.left + img.width + 4 &&
-              clickY >= img.top - 4 &&
-              clickY <= img.top + img.height + 4
-            ) {
-              this.convertImageToEditableObject(img, i);
-              return;
-            }
-          }
-        }
-
-        // 1.2 Find if click hits any PDF text line bounding box
+        // 1.1 Find if click hits any PDF text line bounding box
         for (let i = 0; i < this.extractedLines.length; i++) {
           const line = this.extractedLines[i];
           if (
@@ -116,21 +98,9 @@ class PDFTextEditor {
             return;
           }
         }
-
-        // 1.3 Check if click lands on any graphic, photo, logo, or banner region in the document
-        const detectedGraphic = this.detectGraphicRegionAt(clickX, clickY);
-        if (detectedGraphic) {
-          this.convertImageToEditableObject(detectedGraphic, -1);
-          return;
-        }
       }
       // ==================== 2. IMAGE DOCUMENT CLICK HANDLING ====================
       else if (docType === 'image') {
-        const detectedGraphic = this.detectGraphicRegionAt(clickX, clickY);
-        if (detectedGraphic && detectedGraphic.width > 24 && detectedGraphic.height > 18) {
-          this.convertImageToEditableObject(detectedGraphic, -1);
-          return;
-        }
         // Clean paint-over text box with auto-detected local background color
         this._placeTextAtImageClick(clickX, clickY);
       }
