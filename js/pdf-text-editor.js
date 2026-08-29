@@ -479,9 +479,13 @@ class PDFTextEditor {
       isItalic = true;
     }
 
-    // 🌟 BUILD 100% IDENTICAL METRIC-MATCHED FONT STACK
+    // 🌟 BUILD 100% IDENTICAL METRIC-MATCHED FONT STACK WITH FULL HINDI (DEVANAGARI) SUPPORT
+    const hasHindi = /[\u0900-\u097F]/.test(str || '');
     let fontStack = '';
-    if (combined.includes('times') || combined.includes('timesnewroman') || combined.includes('times-roman') || (combined.includes('serif') && !combined.includes('sans'))) {
+
+    if (hasHindi || combined.includes('devanagari') || combined.includes('hindi') || combined.includes('kruti') || combined.includes('mangal') || combined.includes('mukta') || combined.includes('shree') || combined.includes('apsara')) {
+      fontStack = `'Noto Sans Devanagari', 'Mukta', 'Mangal', 'Nirmala UI', sans-serif`;
+    } else if (combined.includes('times') || combined.includes('timesnewroman') || combined.includes('times-roman') || (combined.includes('serif') && !combined.includes('sans'))) {
       fontStack = `${loadedFontName ? `"${loadedFontName}", ` : ''}Tinos, 'Times New Roman', Times, serif`;
     } else if (combined.includes('courier') || combined.includes('mono') || combined.includes('code') || combined.includes('console')) {
       fontStack = `${loadedFontName ? `"${loadedFontName}", ` : ''}Cousine, 'Courier New', Courier, monospace`;
@@ -513,8 +517,8 @@ class PDFTextEditor {
     const bgImage = canvas.backgroundImage;
 
     // Default styling
-    const defaultFontSize = 18;
-    const defaultFontFamily = "Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+    const defaultFontSize = parseInt(document.getElementById('text-font-size')?.value) || 18;
+    const defaultFontFamily = document.getElementById('text-font-family')?.value || "'Noto Sans Devanagari', 'Mukta', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif";
     let textColor = '#1e293b';
     let bgColor = 'transparent';
 
@@ -780,9 +784,10 @@ class PDFTextEditor {
       evented: true
     });
 
-    // 🌟 NATURAL CHARACTER TRACKING (Prevents leftward shift and expansion)
+    // 🌟 NATURAL CHARACTER TRACKING (Only for Latin text; NEVER for Hindi/Devanagari to prevent matra splitting)
+    const hasHindi = /[\u0900-\u097F]/.test(line.text || '');
     const charCount = (line.text || '').length;
-    if (charCount > 1 && textObj.width > 0 && line.width > 0) {
+    if (!hasHindi && charCount > 1 && textObj.width > 0 && line.width > 0) {
       const widthDiff = line.width - textObj.width;
       const spacingAdjustment = Math.round((widthDiff / charCount / (line.fontSize || 12)) * 1000);
       if (spacingAdjustment >= -35 && spacingAdjustment <= 35) {
