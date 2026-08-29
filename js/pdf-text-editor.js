@@ -116,9 +116,21 @@ class PDFTextEditor {
             return;
           }
         }
+
+        // 1.3 Check if click lands on any graphic, photo, logo, or banner region in the document
+        const detectedGraphic = this.detectGraphicRegionAt(clickX, clickY);
+        if (detectedGraphic) {
+          this.convertImageToEditableObject(detectedGraphic, -1);
+          return;
+        }
       }
       // ==================== 2. IMAGE DOCUMENT CLICK HANDLING ====================
       else if (docType === 'image') {
+        const detectedGraphic = this.detectGraphicRegionAt(clickX, clickY);
+        if (detectedGraphic && detectedGraphic.width > 24 && detectedGraphic.height > 18) {
+          this.convertImageToEditableObject(detectedGraphic, -1);
+          return;
+        }
         // Clean paint-over text box with auto-detected local background color
         this._placeTextAtImageClick(clickX, clickY);
       }
@@ -991,6 +1003,136 @@ class PDFTextEditor {
       g: Math.round(gSum / samples.length),
       b: Math.round(bSum / samples.length)
     };
+  }
+
+  /**
+   * Smart visual boundary detector: analyzes background pixels around (clickX, clickY)
+   * to detect photos, logos, signatures, and graphic boxes.
+   */
+  detectGraphicRegionAt(clickX, clickY) {
+    try {
+      const bgImg = this.canvasManager.canvas.backgroundImage;
+      if (!bgImg || !bgImg._element) return null;
+
+      const imgEl = bgImg._element;
+      const canvasW = this.canvasManager.canvas.getWidth();
+      const canvasH = this.canvasManager.canvas.getHeight();
+      if (!canvasW || !canvasH) return null;
+
+      const offCanvas = document.createElement('canvas');
+      const imgW = imgEl.naturalWidth || imgEl.width;
+      const imgH = imgEl.naturalHeight || imgEl.height;
+      offCanvas.width = imgW;
+      offCanvas.height = imgH;
+      const offCtx = offCanvas.getContext('2d');
+      offCtx.drawImage(imgEl, 0, 0);
+
+      const scaleX = offCanvas.width / canvasW;
+      const scaleY = offCanvas.height / canvasH;
+
+      const px = Math.round(clickX * scaleX);
+      const py = Math.round(clickY * scaleY);
+
+      if (px < 0 || px >= imgW || py < 0 || py >= imgH) return null;
+
+      const imgData = offCtx.getImageData(0, 0, imgW, imgH);
+      const data = imgData.data;
+
+      // Sample page background from corner (5, 5)
+      const bgIdx = (Math.min(5, imgH - 1) * imgW + Math.min(5, imgW - 1)) * 4;
+      const bgR = data[bgIdx];
+      const bgG = data[bgIdx + 1];
+      const bgB = data[bgIdx + 2];
+
+      const clickedIdx = (py * imgW + px) * 4;
+      const clickR = data[clickedIdx];
+      const clickG = data[clickedIdx + 1];
+      const clickB = data[clickedIdx + 2];
+
+      // If clicked pixel is plain empty page background, skip
+      const diffFromBg = Math.abs(clickR - bgR) + Math.abs(clickG - bgG) + Math.abs(clickB - bgB);
+      if (diffFromBg < 26) return null;
+
+      // Check if pixel belongs to a graphic
+      const isGraphicPixel = (x, y) => {
+        if (x < 0 || x >= imgW || y < 0 || y >= imgH) return false;
+        const idx = (y * imgW + x) * 4;
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        return (Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB)) > 20;
+      };
+
+      let minX = px, maxX = px, minY = py, maxY = py;
+      const maxSearchDistX = Math.round(canvasW * 0.45 * scaleX);
+      const maxSearchDistY = Math.round(canvasH * 0.45 * scaleY);
+      const step = Math.max(1, Math.round(scaleX * 1.5));
+
+      // Expand outward in all 4 directions
+      for (let x = px; x >= Math.max(0, px - maxSearchDistX); x -= step) {
+        if (isGraphicPixel(x, py)) minX = x;
+        else break;
+      }
+      for (let x = px; x <= Math.min(imgW - 1, px + maxSearchDistX); x += step) {
+        if (isGraphicPixel(x, py)) maxX = x;
+        else break;
+      }
+      for (let y = py; y >= Math.max(0, py - maxSearchDistY); y -= step) {
+        if (isGraphicPixel(px, y)) minY = y;
+        else break;
+      }
+      for (let y = py; y <= Math.min(imgH - 1, py + maxSearchDistY); y += step) {
+        if (isGraphicPixel(px, y)) maxY = y;
+        else break;
+      }
+
+      // Check 2D perimeter bounds
+      const scanStep = Math.max(2, Math.round(step * 2));
+      for (let y = minY; y <= maxY; y += scanStep) {
+        for (let x = Math.max(0, minX - 30); x <= minX; x += scanStep) {
+          if (isGraphicPixel(x, y)) { minX = Math.min(minX, x); }
+        }
+        for (let x = maxX; x <= Math.min(imgW - 1, maxX + 30); x += scanStep) {
+          if (isGraphicPixel(x, y)) { maxX = Math.max(maxX, x); }
+        }
+      }
+      for (let x = minX; x <= maxX; x += scanStep) {
+        for (let y = Math.max(0, minY - 30); y <= minY; y += scanStep) {
+          if (isGraphicPixel(x, y)) { minY = Math.min(minY, y); }
+        }
+        for (let y = maxY; y <= Math.min(imgH - 1, maxY + 30); y += scanStep) {
+          if (isGraphicPixel(x, y)) { maxY = Math.max(maxY, y); }
+        }
+      }
+
+      const pad = Math.round(4 * scaleX);
+      minX = Math.max(0, minX - pad);
+      maxX = Math.min(imgW, maxX + pad);
+      minY = Math.max(0, minY - pad);
+      maxY = Math.min(imgH, maxY + pad);
+
+      const regionW = maxX - minX;
+      const regionH = maxY - minY;
+
+      if (regionW < 24 || regionH < 18) return null;
+
+      // Crop image data from offCanvas
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = regionW;
+      cropCanvas.height = regionH;
+      const cropCtx = cropCanvas.getContext('2d');
+      cropCtx.drawImage(offCanvas, minX, minY, regionW, regionH, 0, 0, regionW, regionH);
+
+      return {
+        id: `img_detected_${Date.now()}`,
+        dataUrl: cropCanvas.toDataURL('image/png'),
+        left: Math.round(minX / scaleX),
+        top: Math.round(minY / scaleY),
+        width: Math.round(regionW / scaleX),
+        height: Math.round(regionH / scaleY)
+      };
+    } catch (err) {
+      console.warn("Graphic region detection error:", err);
+      return null;
+    }
   }
 
   /**
