@@ -685,45 +685,11 @@ class PDFTextEditor {
       }
     }
 
-    // ── 3. CLEANLY ERASE TEXT FROM BACKGROUND IMAGE USING EXACT LOCAL BACKGROUND COLOR ──
-    const isImageDoc = (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image');
-    offCtx.fillStyle = bgColor;
-
-    const erasePadX = isImageDoc ? 14 : 2;
-    const erasePadY = isImageDoc ? 8 : 1;
-    const eraseWidth = Math.max(iW + (erasePadX * 2), isImageDoc ? 220 : iW);
-    const eraseHeight = Math.max(Math.round((line.fontSize * (isImageDoc ? 1.5 : 1.18)) / scaleY), isImageDoc ? 38 : 10);
-
-    offCtx.fillRect(
-      Math.max(iX - erasePadX, 0),
-      Math.max(iY - erasePadY, 0),
-      eraseWidth,
-      eraseHeight
-    );
-
-    // Update Fabric background image
-    const newDataUrl = offCanvas.toDataURL('image/png');
-    const newImg = new Image();
-    newImg.onload = () => {
-      const newFabricImg = new fabric.Image(newImg, {
-        originX: 'left',
-        originY: 'top',
-        left: 0,
-        top: 0,
-        scaleX: scaleX,
-        scaleY: scaleY,
-        selectable: false,
-        evented: false
-      });
-      canvas.setBackgroundImage(newFabricImg, () => {
-        canvas.renderAll();
-      });
-    };
-    newImg.src = newDataUrl;
-
-    // ── 4. PLACE REALISTIC EDITABLE ITEXT WITH SEAMLESS MATCHING BACKGROUND ──
-    const textBg = isImageDoc ? bgColor : 'transparent';
-    this._placeEditableText(line, textColor, textBg);
+    // ── 3. PLACE REALISTIC EDITABLE ITEXT WITH MATCHING BACKGROUND ──
+    // Use IText's native textBackgroundColor so the text and its background cover
+    // are a SINGLE unified object. When the user hits Undo, the entire object is removed
+    // with NO ghost background rectangles left covering the original document!
+    this._placeEditableText(line, textColor, bgColor);
   }
 
   /**

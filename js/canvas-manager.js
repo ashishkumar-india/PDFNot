@@ -927,12 +927,18 @@ class CanvasManager {
       const currentBg = this.canvas.backgroundImage;
       this.canvas.loadFromJSON(state, () => {
         if (currentBg) {
-          this.canvas.backgroundImage = currentBg;
+          this.canvas.setBackgroundImage(currentBg, () => {
+            this.canvas.renderAll();
+            this.isHistoryProcessing = false;
+            this.updateHistoryButtons();
+            this.showToast('Undo', 'info');
+          });
+        } else {
+          this.canvas.renderAll();
+          this.isHistoryProcessing = false;
+          this.updateHistoryButtons();
+          this.showToast('Undo', 'info');
         }
-        this.canvas.renderAll();
-        this.isHistoryProcessing = false;
-        this.updateHistoryButtons();
-        this.showToast('Undo', 'info');
       });
     }
   }
@@ -946,12 +952,18 @@ class CanvasManager {
       const currentBg = this.canvas.backgroundImage;
       this.canvas.loadFromJSON(state, () => {
         if (currentBg) {
-          this.canvas.backgroundImage = currentBg;
+          this.canvas.setBackgroundImage(currentBg, () => {
+            this.canvas.renderAll();
+            this.isHistoryProcessing = false;
+            this.updateHistoryButtons();
+            this.showToast('Redo', 'info');
+          });
+        } else {
+          this.canvas.renderAll();
+          this.isHistoryProcessing = false;
+          this.updateHistoryButtons();
+          this.showToast('Redo', 'info');
         }
-        this.canvas.renderAll();
-        this.isHistoryProcessing = false;
-        this.updateHistoryButtons();
-        this.showToast('Redo', 'info');
       });
     }
   }
