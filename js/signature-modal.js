@@ -71,15 +71,15 @@ class SignatureModal {
         tab.classList.add('active');
 
         const tabTarget = tab.getAttribute('data-tab');
-        this.activeTab = tabTarget;
+        this.activeTab = tabTarget.replace('tab-', '');
 
         this.modalEl.querySelectorAll('.tab-pane').forEach(pane => {
           pane.classList.remove('active');
         });
-        const targetPane = document.getElementById(tabTarget);
+        const targetPane = document.getElementById(tabTarget) || document.getElementById('tab-' + tabTarget);
         if (targetPane) targetPane.classList.add('active');
 
-        if (tabTarget === 'draw-sig') {
+        if (this.activeTab === 'draw-sig') {
           setTimeout(() => this.setupDrawCanvas(), 50);
         }
       });
