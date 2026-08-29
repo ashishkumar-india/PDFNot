@@ -326,6 +326,53 @@ button, input, select, textarea {
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.55);
 }
 
+.btn-warning {
+  background: linear-gradient(135deg, #d97706, #f59e0b) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+}
+.btn-warning:hover {
+  background: linear-gradient(135deg, #b45309, #d97706) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.55);
+}
+.btn-warning i,
+.btn-warning span {
+  color: #ffffff !important;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+.btn-danger:hover {
+  background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.55);
+}
+.btn-danger i,
+.btn-danger span {
+  color: #ffffff !important;
+}
+
+.btn-info {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+}
+.btn-info:hover {
+  background: linear-gradient(135deg, #0369a1, #0284c7) !important;
+  color: #ffffff !important;
+}
+.btn-info i,
+.btn-info span {
+  color: #ffffff !important;
+}
+
 .btn-secondary {
   background: var(--bg-surface);
   color: var(--text-primary);
