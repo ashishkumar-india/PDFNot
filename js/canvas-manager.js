@@ -34,13 +34,29 @@ class CanvasManager {
   }
 
   initCanvas() {
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
     this.canvas = new fabric.Canvas(this.canvasId, {
-      selection: true,
+      selection: !isTouch,
       preserveObjectStacking: true,
       stopContextMenu: true,
       fireRightClick: true,
       enableRetinaScaling: true
     });
+
+    // Permanently disable marquee drag-selection box on touch screens
+    const origDrawSelection = this.canvas._drawSelection ? this.canvas._drawSelection.bind(this.canvas) : null;
+    if (origDrawSelection) {
+      const self = this;
+      this.canvas._drawSelection = function(ctx) {
+        const isMobileTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
+        if (isMobileTouch || !self.canvas.selection) {
+          self.canvas._isCurrentlyDrawingSelection = false;
+          self.canvas._groupSelector = null;
+          return;
+        }
+        origDrawSelection(ctx);
+      };
+    }
 
     // Disable offscreen raster objectCaching globally for razor-sharp vector text rendering
     fabric.Object.prototype.objectCaching = false;
@@ -259,16 +275,19 @@ class CanvasManager {
     this.activeTool = toolName;
     const workspace = document.getElementById('canvas-workspace');
 
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
+    const allowMarquee = !isTouch;
+
     // Reset default modes
     this.canvas.isDrawingMode = false;
-    this.canvas.selection = true;
+    this.canvas.selection = allowMarquee;
     workspace.classList.remove('hand-mode');
     this.canvas.defaultCursor = 'default';
 
     switch (toolName) {
       case 'select':
       case 'edit-pdf-text':
-        this.canvas.selection = true;
+        this.canvas.selection = allowMarquee;
         this.canvas.defaultCursor = 'default';
         if (window.pdfTextEditor) {
           window.pdfTextEditor.isTextEditMode = true;
