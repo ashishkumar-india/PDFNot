@@ -589,12 +589,18 @@ class PDFTextEditor {
     }
 
     // ── 3. CLEANLY ERASE TEXT FROM BACKGROUND IMAGE USING EXACT LOCAL BACKGROUND COLOR ──
+    const isImageDoc = (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image');
     offCtx.fillStyle = bgColor;
-    const eraseHeight = Math.round((line.fontSize * 1.18) / scaleY);
+
+    const erasePadX = isImageDoc ? 14 : 2;
+    const erasePadY = isImageDoc ? 8 : 1;
+    const eraseWidth = Math.max(iW + (erasePadX * 2), isImageDoc ? 220 : iW);
+    const eraseHeight = Math.max(Math.round((line.fontSize * (isImageDoc ? 1.5 : 1.18)) / scaleY), isImageDoc ? 38 : 10);
+
     offCtx.fillRect(
-      Math.max(iX - 1, 0),
-      Math.max(iY - 1, 0),
-      iW + 2,
+      Math.max(iX - erasePadX, 0),
+      Math.max(iY - erasePadY, 0),
+      eraseWidth,
       eraseHeight
     );
 
@@ -618,8 +624,9 @@ class PDFTextEditor {
     };
     newImg.src = newDataUrl;
 
-    // ── 4. PLACE REALISTIC EDITABLE ITEXT ──
-    this._placeEditableText(line, textColor, 'transparent');
+    // ── 4. PLACE REALISTIC EDITABLE ITEXT WITH SEAMLESS MATCHING BACKGROUND ──
+    const textBg = isImageDoc ? bgColor : 'transparent';
+    this._placeEditableText(line, textColor, textBg);
   }
 
   /**
@@ -627,8 +634,9 @@ class PDFTextEditor {
    */
   _placeEditableText(line, fillColor, bgColor) {
     const isBold = line.fontWeight === 'bold' || line.fontWeight === '700' || line.fontWeight === '800';
-    const color = fillColor || '#000000';
+    const color = fillColor || '#ffffff';
     const fontFam = line.fontFamily || "Arimo, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+    const isImageDoc = (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image');
 
     const textObj = new fabric.IText(line.text, {
       left: line.x,
@@ -640,14 +648,14 @@ class PDFTextEditor {
       fill: color,
       stroke: null,
       strokeWidth: 0,
-      objectCaching: false, // 100% Crisp direct vector glyph rendering (zero blur)
+      objectCaching: false,
       textBackgroundColor: bgColor,
-      cursorColor: '#2563eb',
+      cursorColor: '#3b82f6',
       cursorWidth: 2,
-      editingBorderColor: 'rgba(59, 130, 246, 0.4)',
-      lineHeight: 1.0,
+      editingBorderColor: '#3b82f6',
+      lineHeight: 1.15,
       editable: true,
-      padding: 0,
+      padding: isImageDoc ? 6 : 0,
       originX: 'left',
       originY: 'top',
       hasControls: true,
