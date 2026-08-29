@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Initialize PDF Text Editor (Acrobat-style Smart PDF text detection & live replacement)
   const pdfTextEditor = new PDFTextEditor(canvasManager, pdfEngine);
+  window.pdfTextEditor = pdfTextEditor;
 
   // UI Manager to bind all buttons & inspector
   const app = {

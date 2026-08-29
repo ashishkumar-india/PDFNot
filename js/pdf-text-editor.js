@@ -65,13 +65,12 @@ class PDFTextEditor {
     const canvas = this.canvasManager.canvas;
 
     canvas.on('mouse:down', (opt) => {
-      if (!this.isTextEditMode) return;
-      
-      const allowedTools = ['select', 'text', 'edit-pdf-text', 'signature', 'stamp'];
-      if (!allowedTools.includes(this.canvasManager.activeTool)) return;
-
       // If clicking an existing editable IText, let Fabric handle focus and cursor editing
       if (opt.target && opt.target.type === 'i-text') return;
+
+      // Don't intercept when actively drawing, highlighting, erasing, or panning
+      const nonTextTools = ['draw', 'highlighter', 'eraser', 'hand'];
+      if (nonTextTools.includes(this.canvasManager.activeTool)) return;
 
       const pointer = canvas.getPointer(opt.e);
       const clickX = pointer.x;
@@ -81,12 +80,17 @@ class PDFTextEditor {
 
       // ==================== 1. PDF DOCUMENT CLICK HANDLING ====================
       if (docType === 'pdf') {
+        // If extracted lines are empty for any reason, re-extract immediately
+        if (this.extractedLines.length === 0) {
+          this.extractTextFromCurrentPage();
+        }
+
         // Find if click hits any PDF text line bounding box
         for (let i = 0; i < this.extractedLines.length; i++) {
           const line = this.extractedLines[i];
           if (
-            clickX >= line.x - 10 &&
-            clickX <= line.x + line.width + 10 &&
+            clickX >= line.x - 12 &&
+            clickX <= line.x + line.width + 12 &&
             clickY >= line.y - 8 &&
             clickY <= line.y + line.height + 8
           ) {
@@ -104,14 +108,12 @@ class PDFTextEditor {
   }
 
   toggleTextEditMode(forceState = null) {
-    this.isTextEditMode = (forceState !== null) ? forceState : !this.isTextEditMode;
+    this.isTextEditMode = (forceState !== null) ? forceState : true;
     const btnEditText = document.getElementById('btn-edit-pdf-text');
-    if (btnEditText) btnEditText.classList.toggle('active', this.isTextEditMode);
+    if (btnEditText) btnEditText.classList.add('active');
 
-    if (this.isTextEditMode) {
+    if (this.extractedLines.length === 0) {
       this.extractTextFromCurrentPage();
-    } else {
-      this.extractedLines = [];
     }
   }
 
@@ -820,6 +822,8 @@ class PDFTextEditor {
     const prevScrollX = workspace ? workspace.scrollLeft : 0;
     const prevScrollY = workspace ? workspace.scrollTop : 0;
 
+    // Discard any active signature or other selected object first so new text enters editing cleanly
+    this.canvasManager.canvas.discardActiveObject();
     this.canvasManager.canvas.add(textObj);
     this.canvasManager.canvas.setActiveObject(textObj);
     textObj.enterEditing();

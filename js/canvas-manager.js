@@ -219,8 +219,12 @@ class CanvasManager {
 
     switch (toolName) {
       case 'select':
+      case 'edit-pdf-text':
         this.canvas.selection = true;
         this.canvas.defaultCursor = 'default';
+        if (window.pdfTextEditor) {
+          window.pdfTextEditor.isTextEditMode = true;
+        }
         break;
 
       case 'hand':
