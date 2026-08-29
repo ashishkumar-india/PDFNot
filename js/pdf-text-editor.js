@@ -12,6 +12,8 @@ class PDFTextEditor {
     this.isTextEditMode = false; // Starts off; user enables via button
     this.extractedLines = [];
     this.isOcrRunning = false;
+    this._ocrResultCache = null;  // Cached OCR result for current image doc
+    this._ocrDocName = null;      // Track which doc the cache belongs to
 
     this.init();
   }
@@ -323,17 +325,25 @@ class PDFTextEditor {
       // For image docs: auto-enable text edit mode so click-to-edit works immediately
       if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
         if (!this.isTextEditMode) {
-          // Silently enable mode for images without requiring manual button click
           this.isTextEditMode = true;
           const btnEditText = document.getElementById('btn-edit-pdf-text');
           if (btnEditText) btnEditText.classList.add('active');
         }
-        // Run fast pixel scan (no OCR auto-run — user must click OCR button manually)
+
+        const docName = this.pdfEngine.currentDoc.name;
+
+        // Use cached OCR result if same document
+        if (this._ocrDocName === docName && this._ocrResultCache) {
+          this.extractedLines = this._ocrResultCache;
+          this.canvasManager.showToast(`✨ ${this._ocrResultCache.length} text lines ready — click to edit!`, 'success');
+          return;
+        }
+
+        // Run fast pixel scan first so clicks work immediately (fallback until OCR finishes)
         this.extractedLines = this.scanImageTextLines();
-        // Show a non-blocking hint to user that OCR is available for better text detection
-        setTimeout(() => {
-          this.canvasManager.showToast('Click anywhere to edit. For text detection, use the OCR button.', 'info');
-        }, 600);
+
+        // Auto-run OCR in background — non-blocking, updates extractedLines when done
+        this._runAutoOCRForImage(docName);
       }
       return;
     }
@@ -732,7 +742,93 @@ class PDFTextEditor {
   }
 
   /**
-   * AI OCR for scanned images / photos
+   * Silently runs OCR in background for image documents.
+   * Updates extractedLines with actual text when done, so clicks show real text.
+   * @param {string} docName - document identifier for caching
+   */
+  async _runAutoOCRForImage(docName) {
+    if (this.isOcrRunning) return;
+    if (!window.Tesseract) {
+      // Tesseract not loaded yet — try again in 2s
+      setTimeout(() => this._runAutoOCRForImage(docName), 2000);
+      return;
+    }
+
+    this.isOcrRunning = true;
+
+    // Show subtle non-intrusive loading indicator
+    const ocrBtn = document.getElementById('btn-ocr-detect-text');
+    if (ocrBtn) {
+      ocrBtn.disabled = true;
+      ocrBtn.title = 'OCR scanning in background...';
+    }
+    this.canvasManager.showToast('🔍 Reading image text in background...', 'info');
+
+    try {
+      const dataUrl = this.canvasManager.getCompositeDataURL('png', 1.0, false);
+      const result = await Tesseract.recognize(dataUrl, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text' && m.progress) {
+            const pct = Math.round(m.progress * 100);
+            if (pct === 50 || pct === 100) {
+              this.canvasManager.showToast(`OCR: ${pct}% complete...`, 'info');
+            }
+          }
+        }
+      });
+
+      // Use WORD-level results for precise, accurate hit boxes
+      const words = result.data.words || [];
+      const parsedLines = [];
+
+      words.forEach((word, idx) => {
+        if (!word.text || word.text.trim().length < 1 || word.confidence < 30) return;
+
+        const bbox = word.bbox;
+        const lineH = bbox.y1 - bbox.y0;
+        if (lineH < 6) return;
+
+        const fontSize = Math.max(Math.round(lineH * 0.82), 10);
+
+        parsedLines.push({
+          id: 'ocr_word_' + idx,
+          text: word.text.trim(),
+          x: Math.round(bbox.x0),
+          y: Math.round(bbox.y0),
+          width: Math.max(Math.round(bbox.x1 - bbox.x0), 20),
+          height: lineH,
+          fontSize: fontSize,
+          fontFamily: "Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontWeight: 'normal',
+          fontStyle: 'normal'
+        });
+      });
+
+      if (parsedLines.length > 0) {
+        // Cache OCR result for this document
+        this._ocrResultCache = parsedLines;
+        this._ocrDocName = docName;
+
+        // Update extractedLines so next clicks use actual text
+        this.extractedLines = parsedLines;
+        this.canvasManager.showToast(`✨ ${parsedLines.length} words detected! Click any text to edit.`, 'success');
+      } else {
+        this.canvasManager.showToast('No text detected. Try clicking anywhere to add text.', 'info');
+      }
+    } catch (err) {
+      console.error('Auto OCR Error:', err);
+    } finally {
+      this.isOcrRunning = false;
+      const ocrBtn = document.getElementById('btn-ocr-detect-text');
+      if (ocrBtn) {
+        ocrBtn.disabled = false;
+        ocrBtn.title = 'Detect Text with OCR';
+      }
+    }
+  }
+
+  /**
+   * AI OCR for scanned images / photos (manual trigger)
    */
   async runOCRTextDetection() {
     if (this.isOcrRunning) return;
