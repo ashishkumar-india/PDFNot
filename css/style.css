@@ -670,6 +670,8 @@ button, input, select, textarea {
   background-size: 24px 24px;
   position: relative;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y pinch-zoom;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -678,6 +680,7 @@ button, input, select, textarea {
 }
 .canvas-workspace.hand-mode {
   cursor: grab;
+  touch-action: none;
 }
 .canvas-workspace.hand-mode:active {
   cursor: grabbing;

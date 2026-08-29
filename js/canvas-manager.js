@@ -12,8 +12,8 @@ class CanvasManager {
     
     // Zoom & Pan state
     this.zoomLevel = 1.0;
-    this.minZoom = 0.2;
-    this.maxZoom = 4.0;
+    this.minZoom = 0.08;
+    this.maxZoom = 5.0;
     this.isPanning = false;
     this.lastPosX = 0;
     this.lastPosY = 0;
@@ -73,6 +73,7 @@ class CanvasManager {
     })(fabric.IText.prototype.initHiddenTextarea);
 
     this.bindCanvasEvents();
+    this.bindTouchEvents();
   }
 
   bindCanvasEvents() {
@@ -96,7 +97,7 @@ class CanvasManager {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !this.spacePressed && !this.isEditingText()) {
         this.spacePressed = true;
-        document.getElementById('canvas-workspace').classList.add('hand-mode');
+        document.getElementById('canvas-workspace')?.classList.add('hand-mode');
       }
     });
 
@@ -104,10 +105,95 @@ class CanvasManager {
       if (e.code === 'Space') {
         this.spacePressed = false;
         if (this.activeTool !== 'hand') {
-          document.getElementById('canvas-workspace').classList.remove('hand-mode');
+          document.getElementById('canvas-workspace')?.classList.remove('hand-mode');
         }
       }
     });
+  }
+
+  /**
+   * Native Touch & Pinch-to-Zoom support for mobile devices
+   */
+  bindTouchEvents() {
+    const workspace = document.getElementById('canvas-workspace');
+    if (!workspace) return;
+
+    let initialPinchDistance = 0;
+    let initialZoom = 1.0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isTouchPanning = false;
+    let lastTapTime = 0;
+
+    // Prevent default mobile gesture interference on the workspace
+    workspace.addEventListener('touchstart', (e) => {
+      // Two-finger pinch-to-zoom start
+      if (e.touches.length === 2) {
+        isTouchPanning = false;
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        initialZoom = this.zoomLevel;
+        e.preventDefault();
+        return;
+      }
+
+      // Double-tap to fit screen on mobile
+      if (e.touches.length === 1) {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        if (tapLength < 300 && tapLength > 50 && !this.isEditingText()) {
+          e.preventDefault();
+          this.zoomFit();
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = currentTime;
+
+        if (this.activeTool === 'hand' || this.spacePressed) {
+          isTouchPanning = true;
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }
+      }
+    }, { passive: false });
+
+    workspace.addEventListener('touchmove', (e) => {
+      // Active two-finger pinch zooming
+      if (e.touches.length === 2 && initialPinchDistance > 0) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        if (currentDistance > 10) {
+          const factor = currentDistance / initialPinchDistance;
+          let newZoom = initialZoom * factor;
+          newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
+          this.setZoom(parseFloat(newZoom.toFixed(2)));
+        }
+        return;
+      }
+
+      // One-finger hand panning
+      if (e.touches.length === 1 && isTouchPanning) {
+        e.preventDefault();
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        workspace.scrollLeft -= (currentX - touchStartX);
+        workspace.scrollTop -= (currentY - touchStartY);
+        touchStartX = currentX;
+        touchStartY = currentY;
+      }
+    }, { passive: false });
+
+    workspace.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        initialPinchDistance = 0;
+      }
+      if (e.touches.length === 0) {
+        isTouchPanning = false;
+      }
+    }, { passive: false });
   }
 
   isEditingText() {
@@ -306,11 +392,11 @@ class CanvasManager {
   }
 
   zoomIn() {
-    this.setZoom(Math.min(this.zoomLevel + 0.15, this.maxZoom));
+    this.setZoom(Math.min(parseFloat((this.zoomLevel + 0.15).toFixed(2)), this.maxZoom));
   }
 
   zoomOut() {
-    this.setZoom(Math.max(this.zoomLevel - 0.15, this.minZoom));
+    this.setZoom(Math.max(parseFloat((this.zoomLevel - 0.15).toFixed(2)), this.minZoom));
   }
 
   zoomFit() {
@@ -319,12 +405,18 @@ class CanvasManager {
     const pageH = this.canvas.getHeight();
 
     if (workspace && pageW > 0 && pageH > 0) {
-      const availW = workspace.clientWidth - 60;
-      const availH = workspace.clientHeight - 60;
+      const isMobile = window.innerWidth <= 768;
+      // On mobile use compact padding (16px) so content maximally fills screen
+      const padX = isMobile ? 16 : 40;
+      const padY = isMobile ? 16 : 40;
+      const availW = Math.max(workspace.clientWidth - padX, 80);
+      const availH = Math.max(workspace.clientHeight - padY, 80);
       const scaleW = availW / pageW;
       const scaleH = availH / pageH;
-      const fitZoom = Math.min(scaleW, scaleH, 1.0);
-      this.setZoom(Math.max(parseFloat(fitZoom.toFixed(2)), 0.35));
+      
+      // On mobile screens, fit strictly by width for optimal readability
+      const fitZoom = isMobile ? scaleW : Math.min(scaleW, scaleH, 1.0);
+      this.setZoom(Math.max(parseFloat(fitZoom.toFixed(2)), this.minZoom));
     }
   }
 
