@@ -318,7 +318,7 @@ class CanvasManager {
    */
   bindTouchEvents() {
     const workspace = document.getElementById('canvas-workspace');
-    const upperCanvas = this.canvas.upperCanvasEl;
+    const upperCanvas = this.canvas ? this.canvas.upperCanvasEl : null;
     if (!workspace || !upperCanvas) return;
 
     let isPinching = false;
@@ -344,7 +344,7 @@ class CanvasManager {
           this._pinchStartY = (t1.clientY + t2.clientY) / 2;
           this._swipePageLocked = false;
 
-          // CRITICAL: Immediately cancel any Fabric selection or object drag
+          // CRITICAL: Cancel Fabric marquee selection during pinch
           this.canvas.selection = false;
           this.canvas.discardActiveObject();
           this.canvas._isCurrentlyDrawingSelection = false;
@@ -363,7 +363,7 @@ class CanvasManager {
         return;
       }
 
-      // 1-FINGER TOUCH (Single-Finger Panning & Double-Tap to Smart Zoom)
+      // 1-FINGER TOUCH (Smooth 1-Finger Panning)
       if (e.touches.length === 1) {
         isPinching = false;
         upperCanvas.style.userSelect = '';
@@ -376,10 +376,8 @@ class CanvasManager {
 
         const now = performance.now();
         const touch = e.touches[0];
-        const tapX = touch.clientX;
-        const tapY = touch.clientY;
-        lastTouchX = tapX;
-        lastTouchY = tapY;
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
         lastTouchTime = now;
         touchVelX = 0;
         touchVelY = 0;
@@ -401,52 +399,17 @@ class CanvasManager {
             is1FingerPanning = false;
           }
         }
-
-        const timeDiff = now - this._lastTapTime;
-        const distDiff = Math.hypot(tapX - this._lastTapX, tapY - this._lastTapY);
-
-        // Double-Tap detection within 320ms and 25px
-        if (timeDiff < 320 && distDiff < 25) {
-          const targetEl = e.target;
-          const isInteractive = targetEl && targetEl.closest('button, input, select, textarea, .floating-context-bar, .tool-btn');
-          const hasActiveText = this.isEditingText();
-
-          if (!isInteractive && !hasActiveText) {
-            e.preventDefault();
-            this.triggerHaptic('medium');
-
-            const pageW = this.canvas.getWidth();
-            const fitZoom = (workspace && pageW > 0) ? (workspace.clientWidth - 16) / pageW : 1.0;
-
-            if (this.zoomLevel < fitZoom * 1.35) {
-              // Smart 2.2x Zoom centered on tap point
-              this.setZoomToPoint(Math.min(2.2, this.maxZoom), tapX, tapY);
-              this.showToast('🔍 2x Smart Zoom', 'info');
-            } else {
-              // Reset back to Fit
-              this.zoomFit();
-              this.showToast('📐 Fit to Screen', 'info');
-            }
-            this._lastTapTime = 0;
-            is1FingerPanning = false;
-            return;
-          }
-        }
-
-        this._lastTapTime = now;
-        this._lastTapX = tapX;
-        this._lastTapY = tapY;
       }
     };
 
     const handleTouchMove = (e) => {
-      // 1-FINGER PANNING WHEN ZOOMED IN OR ON EMPTY CANVAS / HAND TOOL
+      // 1-FINGER PANNING: Pan the document smoothly in all directions (left, right, top, bottom)
       if (e.touches.length === 1 && is1FingerPanning) {
         const touch = e.touches[0];
         const dx = touch.clientX - lastTouchX;
         const dy = touch.clientY - lastTouchY;
 
-        // Prevent browser pull-to-refresh when moving canvas
+        // Prevent browser pull-to-refresh / bouncing
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
           e.preventDefault();
         }
@@ -541,15 +504,11 @@ class CanvasManager {
       }
     };
 
-    // Upper canvas and workspace touch listeners with passive: false for smooth panning control
-    upperCanvas.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    // Attach touch listeners once on workspace with passive: false for smooth panning control
     workspace.addEventListener('touchstart', handleTouchStart, { passive: false });
-
-    upperCanvas.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
     workspace.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-    upperCanvas.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
     workspace.addEventListener('touchend', handleTouchEnd, { passive: true });
+    workspace.addEventListener('touchcancel', handleTouchEnd, { passive: true });
   }
 
   isEditingText() {
