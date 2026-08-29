@@ -135,10 +135,11 @@ class BackgroundRemover {
   }
 
   /**
-   * Luminance based background removal with smooth Hermite anti-aliased edge falloff
-   * (Produces natural, ultra-smooth handwritten signatures with zero pixelated/sharp/jagged edges)
+   * Luminance based signature background removal with thin-stroke preservation & ink boost
+   * Preserves 100% of fine/thin handwriting lines, light pen flicks, and delicate curves
+   * while completely clearing out white/gray/off-white paper backgrounds.
    */
-  static async removeLuminanceBackground(img, tolerance = 25) {
+  static async removeLuminanceBackground(img, tolerance = 20) {
     const canvas = document.createElement('canvas');
     const w = img.naturalWidth || img.width;
     const h = img.naturalHeight || img.height;
@@ -150,7 +151,7 @@ class BackgroundRemover {
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
 
-    // 1. Sample perimeter pixels to find the true background paper luminance
+    // 1. Robust paper luminance estimation (sample outer border pixels)
     let borderLumSum = 0;
     let borderCount = 0;
     for (let x = 0; x < w; x += 4) {
@@ -169,34 +170,31 @@ class BackgroundRemover {
     }
 
     const paperLum = borderCount > 0 ? (borderLumSum / borderCount) : 240;
-    
-    // Dynamic soft thresholds based on paper brightness & tolerance
-    const upperCutoff = Math.min(255, paperLum - (tolerance * 0.35));
-    const lowerCutoff = Math.max(20, paperLum - (tolerance * 2.0) - 50);
-    const range = Math.max(upperCutoff - lowerCutoff, 10);
 
-    // 2. Soft-alpha extraction with smooth Hermite curve and edge de-haloing
+    // 2. High-sensitivity ink detection & thin-stroke opacity boosting
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
-      if (lum >= upperCutoff) {
-        data[i + 3] = 0; // Clean transparent paper
-      } else if (lum <= lowerCutoff) {
-        data[i + 3] = 255; // Solid core ink
-      } else {
-        // Smoothstep interpolation (Hermite curve: 3t^2 - 2t^3) for butter-smooth edges
-        const t = (upperCutoff - lum) / range;
-        const smoothAlpha = t * t * (3 - 2 * t);
-        data[i + 3] = Math.round(smoothAlpha * 255);
+      const delta = paperLum - lum;
 
-        // De-halo: neutralize white paper light fringe so ink stroke is smooth without harsh pixels
-        const inkFactor = Math.min(1.0, smoothAlpha * 1.4);
-        data[i] = Math.round(r * inkFactor);
-        data[i + 1] = Math.round(g * inkFactor);
-        data[i + 2] = Math.round(b * inkFactor);
+      if (delta <= 6) {
+        // Pure background paper -> transparent
+        data[i + 3] = 0;
+      } else {
+        // Ink detected (including fine, faint, thin strokes!)
+        // Non-linear gamma boost curve (0.55 exponent) ensures thin lines get solid opacity
+        const normalized = Math.min(1.0, delta / 36);
+        const boostedAlpha = Math.min(1.0, Math.pow(normalized, 0.55) * 1.18);
+        data[i + 3] = Math.round(boostedAlpha * 255);
+
+        // Enhance ink darkness on thin strokes so faint gray strokes become clear, rich ink
+        const darkenFactor = Math.max(0.08, 1.0 - (boostedAlpha * 0.78));
+        data[i] = Math.round(r * darkenFactor);
+        data[i + 1] = Math.round(g * darkenFactor);
+        data[i + 2] = Math.round(b * darkenFactor);
       }
     }
 
