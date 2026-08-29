@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AK Edit - Live PDF & Image Editor Studio Pro</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Caveat:wght@600&family=Cousine:wght@400;700&family=Dancing+Script:wght@600&family=Fira+Code:wght@400;500&family=Great+Vibes&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Pacifico&family=Roboto:wght@400;500;700&family=Tinos:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Cropper.js CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body class="dark-theme">
+
+  <!-- TOP HEADER / APP BAR -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="app-logo">
+        <div class="logo-icon">
+          <i class="fa-solid fa-file-signature"></i>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">AK Edit <span class="badge-pro">PRO</span></span>
+          <span class="logo-subtitle">Live PDF & Document Editor</span>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <!-- File Actions -->
+      <div class="file-actions">
+        <label class="btn btn-primary btn-sm" for="file-input" title="Open PDF or Image">
+          <i class="fa-solid fa-folder-open"></i>
+          <span>Open File</span>
+        </label>
+        <input type="file" id="file-input" accept="application/pdf,image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
+
+        <button id="btn-load-sample" class="btn btn-ghost btn-sm" title="Load demo document for testing">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Demo Doc</span>
+        </button>
+
+        <button id="btn-new-blank" class="btn btn-ghost btn-sm" title="Create a blank canvas page">
+          <i class="fa-solid fa-file-circle-plus"></i>
+          <span>New Page</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Document Info -->
+    <div class="header-center">
+      <div class="doc-title-wrapper" title="Double click to rename">
+        <i class="fa-solid fa-file-lines" id="doc-type-icon"></i>
+        <input type="text" id="doc-filename" value="Document-Edit.pdf" spellcheck="false">
+      </div>
+
+      <!-- Page Pagination -->
+      <div class="page-navigation" id="page-nav-controls">
+        <button id="btn-prev-page" class="nav-btn" title="Previous Page (Left Arrow)">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <span class="page-counter">
+          Page <input type="number" id="current-page-num" value="1" min="1" max="1"> of <span id="total-pages-count">1</span>
+        </span>
+        <button id="btn-next-page" class="nav-btn" title="Next Page (Right Arrow)">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Controls: Undo/Redo, Zoom, Export -->
+    <div class="header-right">
+      <!-- History -->
+      <div class="history-controls">
+        <button id="btn-undo" class="btn-icon" title="Undo (Ctrl+Z)" disabled>
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <button id="btn-redo" class="btn-icon" title="Redo (Ctrl+Y)" disabled>
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <!-- Zoom Controls -->
+      <div class="zoom-controls">
+        <button id="btn-zoom-out" class="btn-icon" title="Zoom Out (Ctrl -)">
+          <i class="fa-solid fa-magnifying-glass-minus"></i>
+        </button>
+        <span id="zoom-level-text" class="zoom-text">100%</span>
+        <button id="btn-zoom-in" class="btn-icon" title="Zoom In (Ctrl +)">
+          <i class="fa-solid fa-magnifying-glass-plus"></i>
+        </button>
+        <button id="btn-zoom-fit" class="btn-icon" title="Fit to Screen">
+          <i class="fa-solid fa-expand"></i>
+        </button>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <!-- Export Hub Button & Dropdown -->
+      <div class="export-group">
+        <button id="btn-open-export-modal" class="btn btn-success btn-sm" title="Export PDF / PNG / JPEG">
+          <i class="fa-solid fa-file-arrow-down"></i>
+          <span>Export Hub</span>
+        </button>
+        <button id="btn-export-options" class="btn btn-ghost btn-icon-only" title="Quick Export Menu">
+          <i class="fa-solid fa-caret-down"></i>
+        </button>
+
+        <div class="dropdown-menu" id="export-dropdown">
+          <button class="dropdown-item" id="export-pdf-all">
+            <i class="fa-solid fa-file-pdf text-danger"></i>
+            <span>Export Multi-Page PDF</span>
+          </button>
+          <button class="dropdown-item" id="export-png-current">
+            <i class="fa-solid fa-file-image text-primary"></i>
+            <span>Current Page as HD PNG</span>
+          </button>
+          <button class="dropdown-item" id="export-jpg-current">
+            <i class="fa-solid fa-file-image text-warning"></i>
+            <span>Current Page as JPEG</span>
+          </button>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item" id="btn-print-doc">
+            <i class="fa-solid fa-print"></i>
+            <span>Print Document</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="btn-keyboard-shortcuts" class="btn-icon ml-1" title="Keyboard Shortcuts (?)">
+        <i class="fa-regular fa-circle-question"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="app-body">
+
+    <!-- LEFT SIDEBAR: THUMBNAILS & PAGES -->
+    <aside class="pages-sidebar" id="pages-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Pages (<span id="sidebar-page-count">1</span>)</span>
+        </div>
+        <div class="sidebar-actions">
+          <button id="btn-add-page-sidebar" class="btn-icon-xs" title="Add Blank Page">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button id="btn-toggle-thumbnails" class="btn-icon-xs" title="Collapse Sidebar">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="thumbnails-scroll" id="thumbnails-container">
+        <!-- Live Thumbnails generated dynamically by JS -->
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="btn-rotate-page-left" class="btn-sidebar-opt" title="Rotate Current Page CCW 90°">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Rotate Left
+        </button>
+        <button id="btn-rotate-page-right" class="btn-sidebar-opt" title="Rotate Current Page CW 90°">
+          <i class="fa-solid fa-arrow-rotate-right"></i> Rotate Right
+        </button>
+        <button id="btn-delete-page" class="btn-sidebar-opt text-danger" title="Delete Current Page">
+          <i class="fa-solid fa-trash-can"></i> Delete Page
+        </button>
+      </div>
+    </aside>
+
+    <!-- LEFT FLOATING TOOLBAR -->
+    <aside class="floating-toolbar" id="main-tools">
+      <div class="tool-group">
+        <button class="tool-btn active" data-tool="select" title="Select & Move (V)">
+          <i class="fa-solid fa-arrow-pointer"></i>
+          <span class="tool-tip">Select (V)</span>
+        </button>
+        <button class="tool-btn" data-tool="hand" title="Hand / Pan View (H)">
+          <i class="fa-solid fa-hand"></i>
+          <span class="tool-tip">Pan (H)</span>
+        </button>
+      </div>
+
+      <div class="tool-separator"></div>
+
+      <div class="tool-group">
+        <button class="tool-btn" data-tool="text" title="Add Live Editable Text (T)">
+          <i class="fa-solid fa-font"></i>
+          <span class="tool-tip">Text (T)</span>
+        </button>
+        <button class="tool-btn" data-tool="draw" title="Freehand Pen / Brush (P)">
+          <i class="fa-solid fa-pen-nib"></i>
+          <span class="tool-tip">Pen (P)</span>
+        </button>
+        <button class="tool-btn" data-tool="highlighter" title="Highlighter (B)">
+          <i class="fa-solid fa-highlighter"></i>
+          <span class="tool-tip">Highlighter (B)</span>
+        </button>
+        <button class="tool-btn" data-tool="eraser" title="Erase Selected / Eraser Mode (E)">
+          <i class="fa-solid fa-eraser"></i>
+          <span class="tool-tip">Eraser (E)</span>
+        </button>
+      </div>
+
+      <div class="tool-separator"></div>
+
+      <!-- Shapes Dropdown / Flyout -->
+      <div class="tool-group tool-with-popup">
+        <button class="tool-btn" data-tool="shapes" id="btn-shapes-flyout" title="Shapes (Rectangle, Circle, Arrow, Line)">
+          <i class="fa-regular fa-square"></i>
+          <span class="tool-tip">Shapes</span>
+        </button>
+
+        <div class="shapes-flyout" id="shapes-flyout-menu">
+          <button class="shape-opt" data-shape="rect" title="Rectangle"><i class="fa-regular fa-square"></i> Rectangle</button>
+          <button class="shape-opt" data-shape="circle" title="Circle"><i class="fa-regular fa-circle"></i> Circle</button>
+          <button class="shape-opt" data-shape="arrow" title="Arrow"><i class="fa-solid fa-arrow-right-long"></i> Arrow</button>
+          <button class="shape-opt" data-shape="line" title="Straight Line"><i class="fa-solid fa-minus"></i> Line</button>
+          <button class="shape-opt" data-shape="star" title="Star"><i class="fa-regular fa-star"></i> Star</button>
+          <button class="shape-opt" data-shape="bubble" title="Speech Bubble"><i class="fa-regular fa-comment-dots"></i> Bubble</button>
+        </div>
+      </div>
+
+      <div class="tool-group">
+        <!-- Redaction Whiteout / Blackout -->
+        <button class="tool-btn" data-tool="redact-white" title="Whiteout Mask (Hide Text)">
+          <i class="fa-solid fa-square-full text-light-ghost"></i>
+          <span class="tool-tip">Whiteout</span>
+        </button>
+        <button class="tool-btn" data-tool="redact-black" title="Blackout Redaction (Mask Secret)">
+          <i class="fa-solid fa-square-full text-black"></i>
+          <span class="tool-tip">Blackout</span>
+        </button>
+      </div>
+
+      <div class="tool-separator"></div>
+
+      <!-- Native PDF Text Editing Tool -->
+      <div class="tool-group">
+        <button class="tool-btn active" data-tool="edit-pdf-text" id="btn-edit-pdf-text" title="Direct PDF Text Edit (Click any text on page to edit)">
+          <i class="fa-solid fa-i-cursor text-primary"></i>
+          <span class="tool-tip">Edit PDF Text</span>
+        </button>
+        <button class="tool-btn" data-tool="ocr-detect" id="btn-ocr-detect-text" title="AI OCR: Detect & Edit Text on Scans/Images">
+          <i class="fa-solid fa-brain text-warning"></i>
+          <span class="tool-tip">Image OCR Text</span>
+        </button>
+        <button class="tool-btn" data-tool="find-replace" id="btn-open-find-replace" title="Find & Replace Text in PDF">
+          <i class="fa-solid fa-magnifying-glass-arrow-right"></i>
+          <span class="tool-tip">Find & Replace</span>
+        </button>
+      </div>
+
+      <div class="tool-separator"></div>
+
+      <div class="tool-group">
+        <button class="tool-btn" data-tool="signature" id="btn-open-signature" title="Digital Signature (Draw / Type / Upload)">
+          <i class="fa-solid fa-signature"></i>
+          <span class="tool-tip">Signature</span>
+        </button>
+        <button class="tool-btn" data-tool="stamp" id="btn-open-stamps" title="Stamps (Approved, Confidential, Paid, etc.)">
+          <i class="fa-solid fa-stamp"></i>
+          <span class="tool-tip">Stamps</span>
+        </button>
+        
+        <!-- Add Image with Auto BG Removal -->
+        <button class="tool-btn" data-tool="image-modal" id="btn-open-image-modal" title="Add Image with Auto Background Removal">
+          <i class="fa-solid fa-wand-magic-sparkles text-primary"></i>
+          <span class="tool-tip">Image & Auto BG</span>
+        </button>
+      </div>
+
+      <div class="tool-separator"></div>
+
+      <div class="tool-group">
+        <button class="tool-btn" data-tool="crop" id="btn-crop-tool" title="Crop Page / Image">
+          <i class="fa-solid fa-crop-simple"></i>
+          <span class="tool-tip">Crop</span>
+        </button>
+        <button class="tool-btn" data-tool="filters" id="btn-filters-tool" title="Image Adjustments & Filters">
+          <i class="fa-solid fa-sliders"></i>
+          <span class="tool-tip">Filters</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CENTER WORKSPACE VIEWPORT -->
+    <section class="canvas-workspace" id="canvas-workspace">
+      <!-- Loading Overlay -->
+      <div class="canvas-loader" id="canvas-loader">
+        <div class="spinner"></div>
+        <p id="loader-status">Rendering Document...</p>
+      </div>
+
+      <!-- Canvas Centering Wrapper -->
+      <div class="canvas-viewport" id="canvas-viewport">
+        <div class="canvas-shadow-box" id="canvas-wrapper">
+          <canvas id="pdf-fabric-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Quick Floating Mini Context Toolbar (appears near selected item) -->
+      <div class="floating-context-bar" id="floating-context-bar">
+        <button id="ctx-duplicate" class="ctx-btn" title="Duplicate (Ctrl+D)"><i class="fa-solid fa-clone"></i></button>
+        <button id="ctx-remove-bg" class="ctx-btn text-primary" title="🪄 Auto Remove Background"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+        <button id="ctx-bring-front" class="ctx-btn" title="Bring to Front"><i class="fa-solid fa-layer-group"></i></button>
+        <button id="ctx-send-back" class="ctx-btn" title="Send to Back"><i class="fa-solid fa-arrow-down-short-wide"></i></button>
+        <button id="ctx-lock" class="ctx-btn" title="Lock / Unlock Object"><i class="fa-solid fa-lock"></i></button>
+        <div class="divider-v-sm"></div>
+        <button id="ctx-delete" class="ctx-btn text-danger" title="Delete (Del)"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    </section>
+
+    <!-- RIGHT INSPECTOR PANEL (Dynamic properties for active tool & selection) -->
+    <aside class="inspector-sidebar" id="inspector-sidebar">
+      <div class="inspector-header">
+        <div class="inspector-title" id="inspector-panel-title">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Properties</span>
+        </div>
+        <button id="btn-toggle-inspector" class="btn-icon-xs" title="Toggle Inspector">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="inspector-content">
+
+        <!-- SECTION: IMAGE SPECIFIC (Auto Background Remover) -->
+        <div class="prop-section" id="sec-image-bg-props" style="display:none;">
+          <div class="prop-section-title">
+            <i class="fa-solid fa-wand-magic-sparkles text-primary"></i> Image AI Background
+          </div>
+          <button class="btn btn-primary btn-sm w-100" id="btn-inspector-remove-bg">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto Remove BG Now
+          </button>
+          <div class="form-row mt-2">
+            <div class="form-col col-12">
+              <label>BG Tolerance: <span id="val-inspector-bg-tol">35</span>%</label>
+              <input type="range" id="inspector-bg-tol" min="5" max="95" value="35" class="form-range">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: TEXT PROPERTIES (Visible when text selected or text tool active) -->
+        <div class="prop-section" id="sec-text-props">
+          <div class="prop-section-title">
+            <i class="fa-solid fa-font"></i> Typography
+          </div>
+
+          <!-- Font Family & Size -->
+          <div class="form-row">
+            <div class="form-col col-8">
+              <label>Font Family</label>
+              <select id="text-font-family" class="form-select">
+                <option value="Inter" selected>Inter (Clean Modern)</option>
+                <option value="Outfit">Outfit (Geometric)</option>
+                <option value="Caveat">Caveat (Handwritten)</option>
+                <option value="Dancing Script">Dancing Script (Cursive)</option>
+                <option value="Pacifico">Pacifico (Brush)</option>
+                <option value="Fira Code">Fira Code (Monospace)</option>
+                <option value="Arial">Arial (Standard)</option>
+                <option value="Times New Roman">Times New Roman (Serif)</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Impact">Impact</option>
+              </select>
+            </div>
+            <div class="form-col col-4">
+              <label>Size</label>
+              <input type="number" id="text-font-size" class="form-input" value="24" min="8" max="180">
+            </div>
+          </div>
+
+          <!-- Styles: Bold, Italic, Underline, Strikethrough, Alignments -->
+          <div class="form-row mt-2">
+            <div class="btn-toggle-group">
+              <button class="btn-toggle" id="btn-text-bold" title="Bold"><i class="fa-solid fa-bold"></i></button>
+              <button class="btn-toggle" id="btn-text-italic" title="Italic"><i class="fa-solid fa-italic"></i></button>
+              <button class="btn-toggle" id="btn-text-underline" title="Underline"><i class="fa-solid fa-underline"></i></button>
+              <button class="btn-toggle" id="btn-text-strike" title="Strikethrough"><i class="fa-solid fa-strikethrough"></i></button>
+            </div>
+            <div class="btn-toggle-group">
+              <button class="btn-toggle active" id="btn-align-left" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+              <button class="btn-toggle" id="btn-align-center" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+              <button class="btn-toggle" id="btn-align-right" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+            </div>
+          </div>
+
+          <!-- Colors: Text & Background -->
+          <div class="form-row mt-2">
+            <div class="form-col col-6">
+              <label>Text Color</label>
+              <div class="color-picker-wrapper">
+                <input type="color" id="text-color-picker" value="#1e293b">
+                <span id="text-color-hex">#1E293B</span>
+              </div>
+            </div>
+            <div class="form-col col-6">
+              <label>Highlight Fill</label>
+              <div class="color-picker-wrapper">
+                <input type="color" id="text-bg-picker" value="#ffffff">
+                <button class="btn-transparent-toggle" id="btn-text-bg-transparent" title="Make Background Transparent">
+                  <i class="fa-solid fa-ban"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: STROKE & BRUSH PROPERTIES (Visible for Draw, Highlighter, Shapes) -->
+        <div class="prop-section" id="sec-brush-props">
+          <div class="prop-section-title">
+            <i class="fa-solid fa-paint-brush"></i> Brush & Stroke
+          </div>
+
+          <div class="form-row">
+            <div class="form-col col-6">
+              <label>Stroke Color</label>
+              <div class="color-picker-wrapper">
+                <input type="color" id="brush-color-picker" value="#ef4444">
+                <span id="brush-color-hex">#EF4444</span>
+              </div>
+            </div>
+            <div class="form-col col-6">
+              <label>Stroke Width: <span id="val-brush-width">4</span>px</label>
+              <input type="range" id="brush-width-slider" min="1" max="60" value="4" class="form-range">
+            </div>
+          </div>
+
+          <div class="form-row mt-2">
+            <div class="form-col col-12">
+              <label>Stroke Opacity: <span id="val-brush-opacity">100</span>%</label>
+              <input type="range" id="brush-opacity-slider" min="5" max="100" value="100" class="form-range">
+            </div>
+          </div>
+
+          <!-- Color Presets -->
+          <div class="color-presets-strip mt-2">
+            <span class="color-swatch" style="background:#000000;" data-color="#000000" title="Black"></span>
+            <span class="color-swatch" style="background:#ef4444;" data-color="#ef4444" title="Red"></span>
+            <span class="color-swatch" style="background:#3b82f6;" data-color="#3b82f6" title="Blue"></span>
+            <span class="color-swatch" style="background:#10b981;" data-color="#10b981" title="Green"></span>
+            <span class="color-swatch" style="background:#f59e0b;" data-color="#f59e0b" title="Orange"></span>
+            <span class="color-swatch" style="background:#8b5cf6;" data-color="#8b5cf6" title="Purple"></span>
+            <span class="color-swatch" style="background:#facc15;" data-color="#facc15" title="Yellow Highlight"></span>
+            <span class="color-swatch" style="background:#ffffff; border:1px solid #666;" data-color="#ffffff" title="White"></span>
+          </div>
+        </div>
+
+        <!-- SECTION: SHAPE SPECIFIC PROPERTIES -->
+        <div class="prop-section" id="sec-shape-props">
+          <div class="prop-section-title">
+            <i class="fa-solid fa-shapes"></i> Shape Style
+          </div>
+
+          <div class="form-row">
+            <div class="form-col col-6">
+              <label>Fill Color</label>
+              <div class="color-picker-wrapper">
+                <input type="color" id="shape-fill-picker" value="#3b82f6">
+                <button class="btn-transparent-toggle" id="btn-shape-fill-transparent" title="Transparent Fill">
+                  <i class="fa-solid fa-ban"></i>
+                </button>
+              </div>
+            </div>
+            <div class="form-col col-6">
+              <label>Corner Radius: <span id="val-corner-radius">0</span>px</label>
+              <input type="range" id="shape-corner-radius" min="0" max="60" value="0" class="form-range">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: IMAGE ADJUSTMENTS & FILTERS -->
+        <div class="prop-section" id="sec-filter-props">
+          <div class="prop-section-title">
+            <i class="fa-solid fa-sliders"></i> Image Adjustments
+          </div>
+
+          <div class="slider-prop-group">
+            <label>Brightness: <span id="val-filter-bright">0</span>%</label>
+            <input type="range" id="filter-brightness" min="-100" max="100" value="0" class="form-range">
+          </div>
+
+          <div class="slider-prop-group">
+            <label>Contrast: <span id="val-filter-contrast">0</span>%</label>
+            <input type="range" id="filter-contrast" min="-100" max="100" value="0" class="form-range">
+          </div>
+
+          <div class="slider-prop-group">
+            <label>Saturation: <span id="val-filter-sat">0</span>%</label>
+            <input type="range" id="filter-saturation" min="-100" max="100" value="0" class="form-range">
+          </div>
+
+          <div class="slider-prop-group">
+            <label>Blur: <span id="val-filter-blur">0</span>px</label>
+            <input type="range" id="filter-blur" min="0" max="20" value="0" class="form-range">
+          </div>
+
+          <div class="filter-preset-buttons mt-3">
+            <button class="btn btn-ghost btn-xs" id="btn-filter-grayscale">Grayscale</button>
+            <button class="btn btn-ghost btn-xs" id="btn-filter-sepia">Sepia</button>
+            <button class="btn btn-ghost btn-xs" id="btn-filter-invert">Invert</button>
+            <button class="btn btn-ghost btn-xs" id="btn-filter-reset">Reset All</button>
+          </div>
+
+          <div class="form-row mt-3">
+            <button class="btn btn-secondary btn-sm col-6" id="btn-flip-h"><i class="fa-solid fa-arrows-left-right"></i> Flip H</button>
+            <button class="btn btn-secondary btn-sm col-6" id="btn-flip-v"><i class="fa-solid fa-arrows-up-down"></i> Flip V</button>
+          </div>
+        </div>
+
+        <!-- SECTION: GENERAL TRANSFORM / OPACITY -->
+        <div class="prop-section">
+          <div class="prop-section-title">
+            <i class="fa-solid fa-vector-square"></i> General & Layer
+          </div>
+
+          <div class="form-row">
+            <div class="form-col col-12">
+              <label>Overall Opacity: <span id="val-object-opacity">100</span>%</label>
+              <input type="range" id="object-opacity-slider" min="0" max="100" value="100" class="form-range">
+            </div>
+          </div>
+
+          <div class="action-grid mt-2">
+            <button class="btn btn-ghost btn-xs" id="prop-btn-bring-forward"><i class="fa-solid fa-chevron-up"></i> Forward</button>
+            <button class="btn btn-ghost btn-xs" id="prop-btn-send-backward"><i class="fa-solid fa-chevron-down"></i> Backward</button>
+            <button class="btn btn-ghost btn-xs" id="prop-btn-center-h"><i class="fa-solid fa-arrows-left-right-to-line"></i> Center H</button>
+            <button class="btn btn-ghost btn-xs" id="prop-btn-center-v"><i class="fa-solid fa-arrows-up-down-left-right"></i> Center V</button>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. IMAGE & AUTO BACKGROUND REMOVAL MODAL -->
+  <div class="modal-overlay" id="bg-remove-modal">
+    <div class="modal-card modal-xl">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-wand-magic-sparkles text-primary"></i>
+          <span>Add Image with Automatic Background Removal</span>
+        </div>
+        <button class="modal-close" id="btn-close-bg-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="bg-modal-layout">
+          <!-- Left Controls Column -->
+          <div class="bg-modal-sidebar">
+            <label class="btn btn-primary w-100" for="bg-upload-input">
+              <i class="fa-solid fa-upload"></i>
+              <span>Choose Image / Logo</span>
+            </label>
+            <input type="file" id="bg-upload-input" accept="image/*" style="display:none;">
+
+            <div class="bg-control-box mt-3">
+              <div class="form-group mb-2">
+                <label class="switch-label">
+                  <input type="checkbox" id="chk-auto-remove-bg" checked>
+                  <span><strong>Auto Remove Background</strong></span>
+                </label>
+              </div>
+
+              <div class="form-group mb-2">
+                <label>Removal Algorithm</label>
+                <select id="bg-remove-mode" class="form-select">
+                  <option value="auto" selected>✨ Smart Auto-Detect (Edge & Corners)</option>
+                  <option value="white">📄 White Paper / Light Background</option>
+                  <option value="luminance">✍️ Signature / Line Art Ink Mask</option>
+                  <option value="custom">🎨 Custom Color Key</option>
+                </select>
+              </div>
+
+              <div class="form-group mb-2" id="grp-custom-color" style="display:none;">
+                <label>Target BG Color to Remove</label>
+                <div class="color-picker-wrapper">
+                  <input type="color" id="bg-target-color" value="#ffffff">
+                  <span id="bg-target-color-hex">#FFFFFF</span>
+                </div>
+              </div>
+
+              <div class="form-group mb-2">
+                <label>Tolerance (Color Match): <span id="val-bg-tolerance">30</span>%</label>
+                <input type="range" id="bg-tolerance-slider" min="5" max="95" value="30" class="form-range">
+              </div>
+
+              <div class="form-group mb-2">
+                <label>Edge Feather (Smoothness): <span id="val-bg-feather">2</span>px</label>
+                <input type="range" id="bg-feather-slider" min="0" max="8" value="2" class="form-range">
+              </div>
+            </div>
+
+            <!-- Quick sample logos for instant testing -->
+            <div class="mt-3">
+              <label>Try Quick Samples:</label>
+              <div class="sample-img-strip mt-1">
+                <button class="btn btn-ghost btn-xs sample-img-btn" data-type="stamp">Badge Sample</button>
+                <button class="btn btn-ghost btn-xs sample-img-btn" data-type="signature">Signature Sample</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Preview Column -->
+          <div class="bg-modal-preview">
+            <div class="preview-panels-grid">
+              <div class="preview-panel">
+                <span class="preview-panel-tag">Original Image</span>
+                <div class="preview-box">
+                  <img id="bg-original-img" src="" alt="Original">
+                  <div class="preview-placeholder" id="bg-orig-placeholder">
+                    <i class="fa-regular fa-image"></i>
+                    <p>Upload an image to preview</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="preview-panel">
+                <span class="preview-panel-tag tag-success">✨ Background Removed (Transparent)</span>
+                <div class="preview-box checkerboard-bg">
+                  <img id="bg-processed-img" src="" alt="Processed">
+                  <div class="preview-placeholder" id="bg-proc-placeholder">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <p>Processed transparent output</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-bg-modal">Cancel</button>
+        <button class="btn btn-primary" id="btn-insert-bg-image" disabled>
+          <i class="fa-solid fa-check"></i> Insert Transparent Image to Page
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. EXPORT OPTIONS HUB MODAL -->
+  <div class="modal-overlay" id="export-hub-modal">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-download text-success"></i>
+          <span>Export Document Hub (PDF / PNG / JPEG)</span>
+        </div>
+        <button class="modal-close" id="btn-close-export-hub"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="export-format-grid">
+          <!-- Card 1: Multi-Page PDF -->
+          <div class="export-format-card active" data-export-format="pdf">
+            <div class="card-radio"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="format-icon pdf-color"><i class="fa-solid fa-file-pdf"></i></div>
+            <div class="format-info">
+              <h4>PDF Document (.pdf)</h4>
+              <p>Full multi-page synthesis with crisp vector & raster annotations.</p>
+            </div>
+          </div>
+
+          <!-- Card 2: PNG Image (HD) -->
+          <div class="export-format-card" data-export-format="png">
+            <div class="card-radio"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="format-icon png-color"><i class="fa-solid fa-file-image"></i></div>
+            <div class="format-info">
+              <h4>PNG Image (.png)</h4>
+              <p>High-resolution lossless image with transparent / solid background.</p>
+            </div>
+          </div>
+
+          <!-- Card 3: JPEG Compressed -->
+          <div class="export-format-card" data-export-format="jpeg">
+            <div class="card-radio"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="format-icon jpg-color"><i class="fa-solid fa-image"></i></div>
+            <div class="format-info">
+              <h4>JPEG Image (.jpg)</h4>
+              <p>Standard compressed web image with adjustable quality slider.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="export-settings-box mt-3">
+          <div class="form-row">
+            <div class="form-col col-6">
+              <label>Pages to Export</label>
+              <select id="export-page-range" class="form-select">
+                <option value="all" selected>All Pages (Multi-Page Document)</option>
+                <option value="current">Current Page Only</option>
+              </select>
+            </div>
+            <div class="form-col col-6" id="grp-jpeg-quality" style="display:none;">
+              <label>JPEG Quality: <span id="val-jpeg-quality">95</span>%</label>
+              <input type="range" id="export-jpeg-quality" min="40" max="100" value="95" class="form-range">
+            </div>
+            <div class="form-col col-6" id="grp-png-bg">
+              <label>PNG Background</label>
+              <select id="export-png-bg-type" class="form-select">
+                <option value="white" selected>Solid Page Background</option>
+                <option value="transparent">Transparent Canvas (Annotations Only)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-export-hub">Cancel</button>
+        <button class="btn btn-success btn-lg" id="btn-execute-hub-export">
+          <i class="fa-solid fa-download"></i> Download Exported File
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. SIGNATURE MODAL -->
+  <div class="modal-overlay" id="signature-modal">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-signature"></i>
+          <span>Create Digital Signature</span>
+        </div>
+        <button class="modal-close" id="btn-close-sig-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Tabs: Draw, Type, Upload -->
+        <div class="modal-tabs">
+          <button class="modal-tab active" data-tab="draw-sig"><i class="fa-solid fa-pen"></i> Draw</button>
+          <button class="modal-tab" data-tab="type-sig"><i class="fa-solid fa-keyboard"></i> Type</button>
+          <button class="modal-tab" data-tab="upload-sig"><i class="fa-solid fa-upload"></i> Upload Image (Auto Transparent)</button>
+        </div>
+
+        <!-- TAB 1: DRAW SIGNATURE -->
+        <div class="tab-pane active" id="tab-draw-sig">
+          <div class="sig-pad-container">
+            <canvas id="sig-draw-canvas" width="640" height="220"></canvas>
+            <div class="sig-baseline"></div>
+            <span class="sig-placeholder-hint">Sign above this line</span>
+          </div>
+          <div class="sig-draw-toolbar">
+            <div class="sig-colors">
+              <span class="sig-color-dot active" style="background:#0f172a;" data-color="#0f172a"></span>
+              <span class="sig-color-dot" style="background:#1d4ed8;" data-color="#1d4ed8"></span>
+              <span class="sig-color-dot" style="background:#047857;" data-color="#047857"></span>
+              <span class="sig-color-dot" style="background:#b91c1c;" data-color="#b91c1c"></span>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-sig-pad"><i class="fa-solid fa-eraser"></i> Clear</button>
+          </div>
+        </div>
+
+        <!-- TAB 2: TYPE SIGNATURE -->
+        <div class="tab-pane" id="tab-type-sig">
+          <div class="form-group mb-3">
+            <label>Enter Your Full Name</label>
+            <input type="text" id="sig-type-input" class="form-input form-input-lg" placeholder="e.g. John Doe" value="John Doe">
+          </div>
+          <div class="sig-fonts-preview-grid">
+            <div class="sig-font-card active" data-font="Caveat">
+              <span class="sig-preview-text font-caveat">John Doe</span>
+              <span class="sig-font-name">Caveat</span>
+            </div>
+            <div class="sig-font-card" data-font="Dancing Script">
+              <span class="sig-preview-text font-dancing">John Doe</span>
+              <span class="sig-font-name">Dancing Script</span>
+            </div>
+            <div class="sig-font-card" data-font="Great Vibes">
+              <span class="sig-preview-text font-greatvibes">John Doe</span>
+              <span class="sig-font-name">Great Vibes</span>
+            </div>
+            <div class="sig-font-card" data-font="Pacifico">
+              <span class="sig-preview-text font-pacifico">John Doe</span>
+              <span class="sig-font-name">Pacifico</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: UPLOAD SIGNATURE -->
+        <div class="tab-pane" id="tab-upload-sig">
+          <div class="drop-upload-zone" id="sig-drop-zone">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Drag & Drop signature image (Paper backgrounds will be auto-removed!)</p>
+            <input type="file" id="sig-file-input" accept="image/*" style="display:none;">
+          </div>
+          <div id="sig-upload-preview-wrapper" style="display:none;" class="mt-3 text-center">
+            <div class="checkerboard-bg d-inline-block p-2 rounded">
+              <img id="sig-upload-preview" src="" alt="Signature Preview" style="max-height:120px; border-radius:6px;">
+            </div>
+            <div class="mt-2">
+              <button class="btn btn-ghost btn-xs" id="btn-remove-uploaded-sig"><i class="fa-solid fa-trash"></i> Remove</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-signature">Cancel</button>
+        <button class="btn btn-primary" id="btn-insert-signature"><i class="fa-solid fa-signature"></i> Insert Signature to Page</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. STAMP MODAL -->
+  <div class="modal-overlay" id="stamp-modal">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-stamp"></i>
+          <span>Select Document Stamp</span>
+        </div>
+        <button class="modal-close" id="btn-close-stamp-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="stamps-grid">
+          <div class="stamp-item stamp-approved" data-stamp="APPROVED" data-color="#16a34a">
+            <div class="stamp-border">
+              <i class="fa-solid fa-circle-check"></i> APPROVED
+            </div>
+          </div>
+          <div class="stamp-item stamp-confidential" data-stamp="CONFIDENTIAL" data-color="#dc2626">
+            <div class="stamp-border">
+              <i class="fa-solid fa-lock"></i> CONFIDENTIAL
+            </div>
+          </div>
+          <div class="stamp-item stamp-draft" data-stamp="DRAFT" data-color="#64748b">
+            <div class="stamp-border">
+              <i class="fa-solid fa-file-pen"></i> DRAFT
+            </div>
+          </div>
+          <div class="stamp-item stamp-paid" data-stamp="PAID" data-color="#2563eb">
+            <div class="stamp-border">
+              <i class="fa-solid fa-receipt"></i> PAID
+            </div>
+          </div>
+          <div class="stamp-item stamp-rejected" data-stamp="REJECTED" data-color="#991b1b">
+            <div class="stamp-border">
+              <i class="fa-solid fa-ban"></i> REJECTED
+            </div>
+          </div>
+          <div class="stamp-item stamp-urgent" data-stamp="URGENT" data-color="#ea580c">
+            <div class="stamp-border">
+              <i class="fa-solid fa-triangle-exclamation"></i> URGENT
+            </div>
+          </div>
+          <div class="stamp-item stamp-verified" data-stamp="VERIFIED" data-color="#059669">
+            <div class="stamp-border">
+              <i class="fa-solid fa-certificate"></i> VERIFIED
+            </div>
+          </div>
+          <div class="stamp-item stamp-custom" id="btn-custom-stamp" data-stamp="CUSTOM">
+            <div class="stamp-border">
+              <i class="fa-solid fa-pen-ruler"></i> CUSTOM STAMP...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. CROP MODAL -->
+  <div class="modal-overlay" id="crop-modal">
+    <div class="modal-card modal-xl">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-crop-simple"></i>
+          <span>Crop Current Page / Image</span>
+        </div>
+        <button class="modal-close" id="btn-close-crop-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="crop-container-box">
+          <img id="crop-target-image" src="" alt="Crop Target">
+        </div>
+        <div class="crop-toolbar mt-3">
+          <div class="btn-group">
+            <button class="btn btn-ghost btn-sm crop-ratio-btn active" data-ratio="NaN">Freeform</button>
+            <button class="btn btn-ghost btn-sm crop-ratio-btn" data-ratio="1">1:1 Square</button>
+            <button class="btn btn-ghost btn-sm crop-ratio-btn" data-ratio="1.7777">16:9 Wide</button>
+            <button class="btn btn-ghost btn-sm crop-ratio-btn" data-ratio="1.3333">4:3 Standard</button>
+            <button class="btn btn-ghost btn-sm crop-ratio-btn" data-ratio="0.707">A4 Portrait</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-crop">Cancel</button>
+        <button class="btn btn-primary" id="btn-apply-crop"><i class="fa-solid fa-check"></i> Apply Crop</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. KEYBOARD SHORTCUTS MODAL -->
+  <div class="modal-overlay" id="shortcuts-modal">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-keyboard"></i>
+          <span>Keyboard Shortcuts</span>
+        </div>
+        <button class="modal-close" id="btn-close-shortcuts"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcuts-table">
+          <div class="shortcut-row"><span>Select Tool</span> <kbd>V</kbd></div>
+          <div class="shortcut-row"><span>Text Tool (Double Click to Live Edit)</span> <kbd>T</kbd></div>
+          <div class="shortcut-row"><span>Pen / Freehand Draw</span> <kbd>P</kbd></div>
+          <div class="shortcut-row"><span>Highlighter</span> <kbd>B</kbd></div>
+          <div class="shortcut-row"><span>Eraser / Remove</span> <kbd>E</kbd></div>
+          <div class="shortcut-row"><span>Pan Viewport</span> <kbd>Space</kbd> + Drag</div>
+          <div class="shortcut-row"><span>Undo</span> <kbd>Ctrl</kbd> + <kbd>Z</kbd></div>
+          <div class="shortcut-row"><span>Redo</span> <kbd>Ctrl</kbd> + <kbd>Y</kbd></div>
+          <div class="shortcut-row"><span>Duplicate Object</span> <kbd>Ctrl</kbd> + <kbd>D</kbd></div>
+          <div class="shortcut-row"><span>Delete Selected</span> <kbd>Delete</kbd> / <kbd>Backspace</kbd></div>
+          <div class="shortcut-row"><span>Zoom In / Out</span> <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>-</kbd></div>
+          <div class="shortcut-row"><span>Switch Pages</span> <kbd>&larr;</kbd> / <kbd>&rarr;</kbd></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. FIND & REPLACE IN PDF MODAL -->
+  <div class="modal-overlay" id="find-replace-modal">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-magnifying-glass-arrow-right text-primary"></i>
+          <span>Find & Replace Text in PDF</span>
+        </div>
+        <button class="modal-close" id="btn-close-find-replace"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group mb-3">
+          <label>Find Text in Document</label>
+          <input type="text" id="input-find-text" class="form-input" placeholder="e.g. John Doe, $500, Agreement...">
+        </div>
+        <div class="form-group mb-3">
+          <label>Replace With</label>
+          <input type="text" id="input-replace-text" class="form-input" placeholder="e.g. Jane Smith, $750, Contract...">
+        </div>
+        <p class="text-secondary" style="font-size:11px; line-height:1.4;">
+          <i class="fa-solid fa-circle-info text-primary"></i>
+          Matching text lines in the PDF will be automatically masked with a clean background and replaced with your new editable text!
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-find-replace" onclick="document.getElementById('find-replace-modal').classList.remove('show')">Cancel</button>
+        <button class="btn btn-primary" id="btn-exec-replace">
+          <i class="fa-solid fa-arrow-right-arrow-left"></i> Replace All on Current Page
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ==================== EXTERNAL SCRIPTS ==================== -->
+  <!-- 1. PDF.js (Mozilla) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+
+  <!-- 2. PDF-Lib (for client-side PDF generation & lossless merging) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+  <!-- 3. Fabric.js (for high-performance interactive canvas, live inline text editing, annotations) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+
+  <!-- 4. Cropper.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
+  <!-- 5. Tesseract.js OCR (for scanned PDF / Image text detection) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+
+  <!-- 6. App Modules -->
+  <script src="js/bg-remover.js"></script>
+  <script src="js/sample-data.js"></script>
+  <script src="js/pdf-engine.js"></script>
+  <script src="js/signature-modal.js"></script>
+  <script src="js/crop-filter.js"></script>
+  <script src="js/pdf-text-editor.js"></script>
+  <script src="js/canvas-manager.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
