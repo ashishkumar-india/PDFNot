@@ -276,15 +276,22 @@ class CanvasManager {
       
       if (pageW > 0 && pageH > 0) {
         // Set exact scaled dimensions so the flex container centers it perfectly without huge invisible overflow margins
+        viewport.style.position = 'relative';
         viewport.style.width = `${Math.round(pageW * zoom)}px`;
         viewport.style.height = `${Math.round(pageH * zoom)}px`;
+        viewport.style.transform = 'none';
         
         const shadowBox = viewport.querySelector('.canvas-shadow-box');
         if (shadowBox) {
+          // Lock to top-left to prevent flexbox from shifting the unscaled container offscreen!
+          shadowBox.style.position = 'absolute';
+          shadowBox.style.left = '0';
+          shadowBox.style.top = '0';
+          shadowBox.style.width = `${pageW}px`;
+          shadowBox.style.height = `${pageH}px`;
           shadowBox.style.transform = `scale(${zoom})`;
           shadowBox.style.transformOrigin = 'top left';
         }
-        viewport.style.transform = 'none';
       } else {
         viewport.style.transform = `scale(${zoom})`;
         viewport.style.transformOrigin = 'top center';
