@@ -303,9 +303,11 @@ class PDFTextEditor {
     if (!pageData) return;
 
     if (!this.pdfEngine.currentDoc || this.pdfEngine.currentDoc.type !== 'pdf' || !this.pdfEngine.currentDoc.pdfDocProxy) {
-      // For images, run instant 5ms line scan
+      // For images, run instant 5ms line scan + silent background OCR for exact text strings!
       if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
         this.extractedLines = this.scanImageTextLines();
+        // Silent AI OCR in background to extract exact words without freezing the UI!
+        setTimeout(() => this.runOCRTextDetection(), 50);
       }
       return;
     }
@@ -722,9 +724,10 @@ class PDFTextEditor {
       const parsedLines = [];
 
       lines.forEach((line, idx) => {
-        if (line.text && line.text.trim().length > 0 && line.confidence > 30) {
+        if (line.text && line.text.trim().length > 0 && line.confidence > 25) {
           const bbox = line.bbox;
-          const fontSize = Math.max(Math.round((bbox.y1 - bbox.y0) * 0.8), 12);
+          const lineH = bbox.y1 - bbox.y0;
+          const fontSize = Math.max(Math.round(lineH * 0.78), 14);
 
           parsedLines.push({
             id: 'ocr_' + idx,
@@ -732,21 +735,21 @@ class PDFTextEditor {
             x: Math.round(bbox.x0),
             y: Math.round(bbox.y0),
             width: Math.round(bbox.x1 - bbox.x0),
-            height: Math.round(bbox.y1 - bbox.y0),
+            height: lineH,
             fontSize: fontSize,
-            fontFamily: 'Arial',
-            fontWeight: 'normal',
-            fontStyle: 'normal',
-            color: '#0f172a'
+            fontFamily: "Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontWeight: 'bold',
+            fontStyle: 'normal'
           });
         }
       });
 
-      this.extractedLines = parsedLines;
-      this.canvasManager.showToast(`✨ OCR Complete: ${parsedLines.length} text lines ready to edit!`, 'success');
+      if (parsedLines.length > 0) {
+        this.extractedLines = parsedLines;
+        this.canvasManager.showToast(`✨ Smart Text Ready: ${parsedLines.length} text lines clickable & editable!`, 'success');
+      }
     } catch (err) {
       console.error("OCR Error:", err);
-      this.canvasManager.showToast("OCR scan failed: " + err.message, "error");
     } finally {
       this.isOcrRunning = false;
     }
