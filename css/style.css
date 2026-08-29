@@ -1281,12 +1281,15 @@ label {
   }
 
   /* Floating Toolbar on Mobile - Horizontal Bottom Dock */
-  .floating-toolbar {
-    position: fixed;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    top: auto;
-    left: 50%;
-    transform: translateX(-50%);
+  .floating-toolbar,
+  .pages-sidebar.collapsed ~ .floating-toolbar,
+  .pages-sidebar ~ .floating-toolbar {
+    position: fixed !important;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
     flex-direction: row;
     padding: 5px 8px;
     border-radius: var(--radius-full);

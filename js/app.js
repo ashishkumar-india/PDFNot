@@ -209,6 +209,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         thumbItem.addEventListener('click', (e) => {
           if (e.target.closest('.thumb-actions')) return;
           this.switchToPage(i);
+          if (window.innerWidth <= 992) {
+            document.getElementById('pages-sidebar')?.classList.remove('open-mobile');
+            document.getElementById('sidebar-backdrop')?.classList.remove('active');
+          }
         });
 
         const btnDel = thumbItem.querySelector('.btn-del-thumb');
@@ -304,12 +308,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         pdfTextEditor.toggleTextEditMode(false);
       });
 
-      // Toggle Thumbnails Sidebar
+      // Toggle Thumbnails Sidebar (Closes drawer on mobile, collapses on desktop)
       const btnToggleSidebar = document.getElementById('btn-toggle-thumbnails');
       const sidebar = document.getElementById('pages-sidebar');
       if (btnToggleSidebar && sidebar) {
         btnToggleSidebar.addEventListener('click', () => {
-          sidebar.classList.toggle('collapsed');
+          if (window.innerWidth <= 992) {
+            closeDrawers();
+          } else {
+            sidebar.classList.toggle('collapsed');
+          }
         });
       }
 
