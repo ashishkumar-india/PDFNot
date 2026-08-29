@@ -1079,21 +1079,23 @@ label {
     display: none; /* Zoom gestures / pinch & fit handled automatically */
   }
 
-  /* Slide-out Drawers for Sidebars */
+  /* Slide-out Drawers for Sidebars (Full-height from top to bottom) */
   .pages-sidebar {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
-    z-index: 90;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 100;
     transform: translateX(-100%);
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.75);
+    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.85);
     background: #0f172a;
     transition: transform var(--transition-normal);
   }
   .pages-sidebar.open-mobile {
     transform: translateX(0);
-    width: var(--sidebar-width);
+    width: min(var(--sidebar-width), 85vw);
   }
 
   .floating-toolbar {
@@ -1103,21 +1105,23 @@ label {
 
   .inspector-sidebar,
   .properties-sidebar {
-    position: absolute;
+    position: fixed;
     right: 0;
     top: 0;
     bottom: 0;
-    z-index: 90;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 100;
     transform: translateX(100%);
-    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.75);
+    box-shadow: -4px 0 32px rgba(0, 0, 0, 0.85);
     background: #0f172a;
     transition: transform var(--transition-normal);
-    max-width: 85vw;
+    max-width: 88vw;
   }
   .inspector-sidebar.open-mobile,
   .properties-sidebar.open-mobile {
     transform: translateX(0);
-    width: min(var(--inspector-width), 85vw);
+    width: min(var(--inspector-width), 88vw);
   }
 
   .canvas-workspace {
