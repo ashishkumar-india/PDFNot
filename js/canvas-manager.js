@@ -323,10 +323,17 @@ class CanvasManager {
 
     let isPinching = false;
     let prevPinchDistance = 0;
+    let is1FingerPanning = false;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    let touchVelX = 0;
+    let touchVelY = 0;
+    let lastTouchTime = 0;
 
     const handleTouchStart = (e) => {
       // 2-FINGER PINCH-ZOOM & SWIPE GESTURE
       if (e.touches.length >= 2) {
+        is1FingerPanning = false;
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -338,7 +345,6 @@ class CanvasManager {
           this._swipePageLocked = false;
 
           // CRITICAL: Immediately cancel any Fabric selection or object drag
-          // that started when the first finger touched the screen.
           this.canvas.selection = false;
           this.canvas.discardActiveObject();
           this.canvas._isCurrentlyDrawingSelection = false;
@@ -357,7 +363,7 @@ class CanvasManager {
         return;
       }
 
-      // 1-FINGER TOUCH (Double-Tap to Smart Zoom & Reset)
+      // 1-FINGER TOUCH (Single-Finger Panning & Double-Tap to Smart Zoom)
       if (e.touches.length === 1) {
         isPinching = false;
         upperCanvas.style.userSelect = '';
@@ -372,6 +378,30 @@ class CanvasManager {
         const touch = e.touches[0];
         const tapX = touch.clientX;
         const tapY = touch.clientY;
+        lastTouchX = tapX;
+        lastTouchY = tapY;
+        lastTouchTime = now;
+        touchVelX = 0;
+        touchVelY = 0;
+
+        cancelAnimationFrame(this._inertiaRafId);
+
+        // Determine if this single-finger touch should pan the workspace
+        if (this.canvas.isDrawingMode) {
+          is1FingerPanning = false;
+        } else if (this.activeTool === 'hand') {
+          is1FingerPanning = true;
+        } else {
+          // If in select / text-edit mode, pan when touching empty space or background
+          const target = this.canvas.findTarget(e);
+          const hasActiveText = this.isEditingText();
+          if (!target && !hasActiveText) {
+            is1FingerPanning = true;
+          } else {
+            is1FingerPanning = false;
+          }
+        }
+
         const timeDiff = now - this._lastTapTime;
         const distDiff = Math.hypot(tapX - this._lastTapX, tapY - this._lastTapY);
 
@@ -398,6 +428,7 @@ class CanvasManager {
               this.showToast('📐 Fit to Screen', 'info');
             }
             this._lastTapTime = 0;
+            is1FingerPanning = false;
             return;
           }
         }
@@ -409,7 +440,32 @@ class CanvasManager {
     };
 
     const handleTouchMove = (e) => {
-      // Butter-smooth 2-finger pinch zoom TO finger midpoint + 2-finger Page Swipe
+      // 1-FINGER PANNING WHEN ZOOMED IN OR ON EMPTY CANVAS / HAND TOOL
+      if (e.touches.length === 1 && is1FingerPanning) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - lastTouchX;
+        const dy = touch.clientY - lastTouchY;
+
+        // Prevent browser pull-to-refresh when moving canvas
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          e.preventDefault();
+        }
+
+        workspace.scrollLeft -= dx;
+        workspace.scrollTop -= dy;
+
+        const now = performance.now();
+        const dt = Math.max(now - lastTouchTime, 1);
+        touchVelX = dx / dt;
+        touchVelY = dy / dt;
+        lastTouchTime = now;
+
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+        return;
+      }
+
+      // 2-FINGER PINCH ZOOM TO FINGER MIDPOINT + PAGE SWIPE
       if (e.touches.length >= 2 && isPinching && prevPinchDistance > 20) {
         e.preventDefault();
         e.stopPropagation();
@@ -462,6 +518,13 @@ class CanvasManager {
     };
 
     const handleTouchEnd = (e) => {
+      if (is1FingerPanning && (Math.abs(touchVelX) > 0.08 || Math.abs(touchVelY) > 0.08)) {
+        this._panVelX = touchVelX;
+        this._panVelY = touchVelY;
+        this._startPanInertia();
+      }
+      is1FingerPanning = false;
+
       if (e.touches.length < 2) {
         isPinching = false;
         prevPinchDistance = 0;
@@ -478,12 +541,12 @@ class CanvasManager {
       }
     };
 
-    // Upper canvas handles pinch-zoom; workspace keeps listeners passive so native pull-to-refresh works
+    // Upper canvas and workspace touch listeners with passive: false for smooth panning control
     upperCanvas.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-    workspace.addEventListener('touchstart', handleTouchStart, { passive: true });
+    workspace.addEventListener('touchstart', handleTouchStart, { passive: false });
 
     upperCanvas.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
-    workspace.addEventListener('touchmove', handleTouchMove, { passive: true });
+    workspace.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     upperCanvas.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
     workspace.addEventListener('touchend', handleTouchEnd, { passive: true });
