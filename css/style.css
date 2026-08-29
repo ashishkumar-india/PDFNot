@@ -590,9 +590,14 @@ button, input, select, textarea {
   color: var(--text-primary);
 }
 .tool-btn.active {
-  background: var(--accent-primary);
-  color: white;
+  background: var(--accent-primary) !important;
+  color: #ffffff !important;
   box-shadow: 0 0 14px var(--accent-primary-glow);
+}
+.tool-btn.active i,
+.tool-btn.active [class*="text-"],
+.tool-btn.active span:not(.tool-tip) {
+  color: #ffffff !important;
 }
 
 /* Tooltip on Hover */
