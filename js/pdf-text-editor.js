@@ -9,11 +9,11 @@ class PDFTextEditor {
   constructor(canvasManager, pdfEngine) {
     this.canvasManager = canvasManager;
     this.pdfEngine = pdfEngine;
-    this.isTextEditMode = false; // Starts off; user enables via button
+    this.isTextEditMode = true; // Live click-to-edit is ENABLED by default for both PDF and Images
     this.extractedLines = [];
     this.isOcrRunning = false;
-    this._ocrResultCache = null;  // Cached OCR result for current image doc
-    this._ocrDocName = null;      // Track which doc the cache belongs to
+    this._ocrResultCache = null;
+    this._ocrDocName = null;
 
     this.init();
   }
@@ -21,6 +21,10 @@ class PDFTextEditor {
   init() {
     this.bindEvents();
     this.bindCanvasClickDetection();
+    
+    // Set button active by default
+    const btnEditText = document.getElementById('btn-edit-pdf-text');
+    if (btnEditText) btnEditText.classList.add('active');
   }
 
   bindEvents() {
@@ -64,30 +68,34 @@ class PDFTextEditor {
       if (!this.isTextEditMode) return;
       if (this.canvasManager.activeTool !== 'select') return;
 
-      // If clicking an existing editable object, let Fabric handle it
+      // If clicking an existing interactive object on canvas, let Fabric handle it
       if (opt.target) return;
 
       const pointer = canvas.getPointer(opt.e);
       const clickX = pointer.x;
       const clickY = pointer.y;
 
-      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'pdf') {
-        // PDF mode: check if click hits any extracted text line bounding box
+      const docType = this.pdfEngine.currentDoc ? this.pdfEngine.currentDoc.type : 'pdf';
+
+      // ==================== 1. PDF DOCUMENT CLICK HANDLING ====================
+      if (docType === 'pdf') {
+        // Find if click hits any PDF text line bounding box
         for (let i = 0; i < this.extractedLines.length; i++) {
           const line = this.extractedLines[i];
           if (
-            clickX >= line.x - 6 &&
-            clickX <= line.x + line.width + 6 &&
-            clickY >= line.y - 6 &&
-            clickY <= line.y + line.height + 6
+            clickX >= line.x - 10 &&
+            clickX <= line.x + line.width + 10 &&
+            clickY >= line.y - 8 &&
+            clickY <= line.y + line.height + 8
           ) {
             this.convertLineToEditableText(line, i);
             return;
           }
         }
-      } else if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
-        // Image mode: place a clean text box at click position (paint-over style)
-        // Sample background color and erase beneath for seamless result
+      }
+      // ==================== 2. IMAGE DOCUMENT CLICK HANDLING ====================
+      else if (docType === 'image') {
+        // Clean paint-over text box with auto-detected local background color
         this._placeTextAtImageClick(clickX, clickY);
       }
     });
@@ -318,22 +326,18 @@ class PDFTextEditor {
     const pageData = this.pdfEngine.pagesData[pageIndex];
     if (!pageData) return;
 
-    if (!this.pdfEngine.currentDoc || this.pdfEngine.currentDoc.type !== 'pdf' || !this.pdfEngine.currentDoc.pdfDocProxy) {
-      // For image docs: just enable click-to-add-text mode, no auto OCR or pixel scan
-      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
-        if (!this.isTextEditMode) {
-          this.isTextEditMode = true;
-          const btnEditText = document.getElementById('btn-edit-pdf-text');
-          if (btnEditText) btnEditText.classList.add('active');
-        }
-        this.extractedLines = []; // No auto-detection overlays
-        this.canvasManager.showToast('🗑️ Click anywhere on the image to add/replace text!', 'info');
-      }
+    const docType = this.pdfEngine.currentDoc ? this.pdfEngine.currentDoc.type : 'pdf';
+
+    // Image documents have no PDF stream
+    if (docType === 'image') {
+      this.extractedLines = [];
       return;
     }
 
-    // For PDFs: only extract if text edit mode is enabled
-    if (!this.isTextEditMode) return;
+    // PDF Documents: extract text content from PDF.js
+    if (!this.pdfEngine.currentDoc || !this.pdfEngine.currentDoc.pdfDocProxy) {
+      return;
+    }
 
     try {
       const pdfPage = await this.pdfEngine.currentDoc.pdfDocProxy.getPage(pageData.pageNum);
