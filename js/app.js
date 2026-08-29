@@ -409,6 +409,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
           }
 
+          if (tool === 'add-image') {
+            document.getElementById('input-direct-image-upload')?.click();
+            return;
+          }
+
           if (tool === 'image-modal') {
             this.openBackgroundRemoverModal();
             return;
@@ -417,6 +422,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           document.getElementById('shapes-flyout-menu')?.classList.remove('show');
           this.activateTool(tool);
         });
+      });
+
+      // Direct Image Upload Input listener
+      document.getElementById('input-direct-image-upload')?.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          canvasManager.insertImageOnCanvas(e.target.files[0]);
+          e.target.value = '';
+        }
       });
 
       // Shapes Flyout Sub-options
@@ -1147,6 +1160,26 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
       });
+
+      // Clipboard Paste (Ctrl+V / Cmd+V) to insert copied images/screenshots
+      window.addEventListener('paste', (e) => {
+        const activeObj = canvasManager.canvas.getActiveObject();
+        if (activeObj && activeObj.isEditing) return; // Don't intercept text typing
+
+        const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+            const blob = items[i].getAsFile();
+            if (blob) {
+              e.preventDefault();
+              canvasManager.insertImageOnCanvas(blob);
+              break;
+            }
+          }
+        }
+      });
     },
 
     bindDragAndDrop() {
@@ -1164,7 +1197,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         e.stopPropagation();
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          this.handleFileUpload(e.dataTransfer.files[0]);
+          const file = e.dataTransfer.files[0];
+          if (file.type.startsWith('image/') && pdfEngine.currentDoc) {
+            // Drop image on open document -> insert image onto current page!
+            const canvasPointer = canvasManager.canvas.getPointer(e);
+            canvasManager.insertImageOnCanvas(file, canvasPointer.x, canvasPointer.y);
+          } else {
+            // Drop PDF or first document -> load document
+            this.handleFileUpload(file);
+          }
         }
       });
     },

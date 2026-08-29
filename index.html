@@ -279,6 +279,19 @@
       <div class="tool-separator"></div>
 
       <div class="tool-group">
+        <!-- Direct Insert Image / Photo / Logo -->
+        <button class="tool-btn" data-tool="add-image" id="btn-add-image-direct" title="Add / Insert Photo or Logo Image">
+          <i class="fa-regular fa-image text-primary"></i>
+          <span class="tool-tip">Add Image</span>
+        </button>
+        <input type="file" id="input-direct-image-upload" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
+
+        <!-- Add Image with Auto BG Removal -->
+        <button class="tool-btn" data-tool="image-modal" id="btn-open-image-modal" title="Add Image with Auto Background Removal">
+          <i class="fa-solid fa-wand-magic-sparkles text-warning"></i>
+          <span class="tool-tip">Image & Auto BG</span>
+        </button>
+
         <button class="tool-btn" data-tool="signature" id="btn-open-signature" title="Digital Signature (Draw / Type / Upload)">
           <i class="fa-solid fa-signature"></i>
           <span class="tool-tip">Signature</span>
@@ -286,12 +299,6 @@
         <button class="tool-btn" data-tool="stamp" id="btn-open-stamps" title="Stamps (Approved, Confidential, Paid, etc.)">
           <i class="fa-solid fa-stamp"></i>
           <span class="tool-tip">Stamps</span>
-        </button>
-        
-        <!-- Add Image with Auto BG Removal -->
-        <button class="tool-btn" data-tool="image-modal" id="btn-open-image-modal" title="Add Image with Auto Background Removal">
-          <i class="fa-solid fa-wand-magic-sparkles text-primary"></i>
-          <span class="tool-tip">Image & Auto BG</span>
         </button>
       </div>
 

@@ -969,6 +969,58 @@ class CanvasManager {
     return dataUrl;
   }
 
+  /**
+   * Inserts a new image (photo, logo, graphic) onto the active canvas at specified or center position.
+   * @param {string|File|Blob} imgSource 
+   * @param {number|null} targetX 
+   * @param {number|null} targetY 
+   */
+  insertImageOnCanvas(imgSource, targetX = null, targetY = null) {
+    const loadImageAndAdd = (src) => {
+      fabric.Image.fromURL(src, (img) => {
+        const canvasW = this.canvas.getWidth() || 794;
+        const canvasH = this.canvas.getHeight() || 1123;
+        const maxW = Math.min(canvasW * 0.45, 320);
+
+        if (img.width > maxW) {
+          img.scale(maxW / img.width);
+        }
+
+        const left = (targetX !== null) ? targetX : (canvasW / 2 - (img.getScaledWidth() / 2));
+        const top = (targetY !== null) ? targetY : (canvasH / 2 - (img.getScaledHeight() / 2));
+
+        img.set({
+          left: Math.max(10, Math.round(left)),
+          top: Math.max(10, Math.round(top)),
+          selectable: true,
+          evented: true,
+          hasControls: true,
+          hasBorders: true,
+          cornerColor: '#3b82f6',
+          cornerStrokeColor: '#ffffff',
+          borderColor: '#3b82f6',
+          cornerSize: 10,
+          transparentCorners: false
+        });
+
+        this.canvas.discardActiveObject();
+        this.canvas.add(img);
+        this.canvas.setActiveObject(img);
+        this.canvas.renderAll();
+        this.saveState();
+        this.showToast('Image added to document! You can move, resize, or replace it.', 'success');
+      }, { crossOrigin: 'anonymous' });
+    };
+
+    if (typeof imgSource === 'string') {
+      loadImageAndAdd(imgSource);
+    } else if (imgSource instanceof File || imgSource instanceof Blob) {
+      const reader = new FileReader();
+      reader.onload = (e) => loadImageAndAdd(e.target.result);
+      reader.readAsDataURL(imgSource);
+    }
+  }
+
   // ==================== MULTI-PAGE ANNOTATION PERSISTENCE ====================
 
   /**
