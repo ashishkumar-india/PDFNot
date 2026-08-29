@@ -289,21 +289,28 @@ class CanvasManager {
   }
 
   /**
-   * Adds live editable IText at coordinates with auto-sampled background mask
+   * Adds live editable IText at coordinates with auto-sampled high contrast font color
    */
-  addTextAtPosition(x, y, initialText = 'Type text here...') {
-    const fontFam = document.getElementById('text-font-family').value || 'Inter';
-    const fontSize = parseInt(document.getElementById('text-font-size').value) || 20;
-    const fontColor = document.getElementById('text-color-picker').value || '#0f172a';
+  addTextAtPosition(x, y, initialText = 'Your Text Here') {
+    const fontFam = document.getElementById('text-font-family')?.value || 'Inter';
+    const fontSize = parseInt(document.getElementById('text-font-size')?.value) || 24;
+    let fontColor = document.getElementById('text-color-picker')?.value || '#0f172a';
 
-    // Sample background color at (x, y)
-    let bgColor = '#ffffff';
+    // Sample background luminance at (x, y) to guarantee high contrast visibility!
     try {
       const lowerCanvas = document.querySelector('.lower-canvas');
       if (lowerCanvas) {
         const ctx = lowerCanvas.getContext('2d');
         const p = ctx.getImageData(Math.max(x - 5, 0), Math.max(y - 5, 0), 1, 1).data;
-        if (p[3] > 0) bgColor = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+        if (p[3] > 0) {
+          const bgLum = (0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]);
+          // If background is dark and fontColor is dark, auto-contrast to white/gold!
+          if (bgLum < 120 && (fontColor === '#0f172a' || fontColor === '#000000')) {
+            fontColor = '#ffffff';
+            const colorPicker = document.getElementById('text-color-picker');
+            if (colorPicker) colorPicker.value = '#ffffff';
+          }
+        }
       }
     } catch (e) {}
 
@@ -318,7 +325,7 @@ class CanvasManager {
       editingBorderColor: '#3b82f6',
       lineHeight: 1.15,
       editable: true,
-      padding: 2,
+      padding: 4,
       hasControls: true,
       hasBorders: true,
       lockMovementX: false,
@@ -326,7 +333,7 @@ class CanvasManager {
       cornerColor: '#3b82f6',
       cornerStrokeColor: '#ffffff',
       borderColor: '#3b82f6',
-      cornerSize: 7,
+      cornerSize: 8,
       transparentCorners: false
     });
 
@@ -336,6 +343,7 @@ class CanvasManager {
     textObj.selectAll();
     this.canvas.renderAll();
     this.saveState();
+    this.showToast('Text box added! Type your text now.', 'info');
 
     if (this.uiManager) this.uiManager.activateTool('select');
   }
@@ -462,23 +470,47 @@ class CanvasManager {
   }
 
   /**
-   * Adds Redaction Box (Whiteout / Blackout)
+   * Adds Redaction / Erase Box (Auto-matches local image background)
    */
   addRedactionBox(x, y, color) {
+    let finalColor = color;
+    if (color === '#ffffff') {
+      try {
+        const lowerCanvas = document.querySelector('.lower-canvas');
+        if (lowerCanvas) {
+          const ctx = lowerCanvas.getContext('2d');
+          const p = ctx.getImageData(Math.max(x - 5, 0), Math.max(y - 5, 0), 1, 1).data;
+          if (p[3] > 0) {
+            finalColor = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+          }
+        }
+      } catch (e) {}
+    }
+
     const rect = new fabric.Rect({
       left: x,
       top: y,
       width: 150,
       height: 35,
-      fill: color,
+      fill: finalColor,
       stroke: 'transparent',
       strokeWidth: 0,
-      selectable: true
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      cornerColor: '#3b82f6',
+      cornerStrokeColor: '#ffffff',
+      borderColor: '#3b82f6',
+      cornerSize: 8,
+      transparentCorners: false
     });
 
     this.canvas.add(rect);
     this.canvas.setActiveObject(rect);
     this.canvas.renderAll();
+    this.saveState();
+    this.showToast('Erase box placed! Resize it over old text, then use Text tool.', 'info');
+
     if (this.uiManager) this.uiManager.activateTool('select');
   }
 
