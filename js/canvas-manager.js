@@ -68,6 +68,7 @@ class CanvasManager {
           this.hiddenTextarea.style.left = '0';
           this.hiddenTextarea.style.opacity = '0';
           this.hiddenTextarea.style.pointerEvents = 'none';
+          this.hiddenTextarea.style.fontFamily = "'Noto Sans Devanagari', 'Mukta', 'Inter', sans-serif";
         }
       };
     })(fabric.IText.prototype.initHiddenTextarea);

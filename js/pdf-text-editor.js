@@ -410,17 +410,36 @@ class PDFTextEditor {
         const isSameStyle = (item.fontFamily === currentLine.fontFamily && item.fontWeight === currentLine.fontWeight);
 
         if (isSameY && isCloseX && isSameStyle) {
-          const needsSpace = !currentLine.text.endsWith(' ') && !item.text.startsWith(' ') && gap > 1;
+          // Check if item starts with a Devanagari combining mark / vowel sign (matra)
+          const isDevanagariMatra = /^[\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963]/.test(item.text);
+          const hasHindi = /[\u0900-\u097F]/.test(currentLine.text + item.text);
+
+          // Only insert space between distinct words (minimum 28% of font size), NEVER before matras
+          const minWordSpace = hasHindi ? Math.max(item.fontSize * 0.28, 4.5) : Math.max(item.fontSize * 0.20, 2.5);
+          const needsSpace = !isDevanagariMatra && !currentLine.text.endsWith(' ') && !item.text.startsWith(' ') && (gap >= minWordSpace);
+
           currentLine.text += (needsSpace ? ' ' : '') + item.text;
           currentLine.width = (item.x + item.width) - currentLine.x;
           currentLine.height = Math.max(currentLine.height, item.height);
         } else {
+          // Normalize spaces and fix any broken Devanagari matra gaps (e.g. 'क ा' -> 'का')
+          currentLine.text = currentLine.text
+            .replace(/\s+/g, ' ')
+            .replace(/ ([\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963])/g, '$1')
+            .trim();
+
           lines.push(currentLine);
           currentLine = { ...item };
         }
       });
 
-      if (currentLine) lines.push(currentLine);
+      if (currentLine) {
+        currentLine.text = currentLine.text
+          .replace(/\s+/g, ' ')
+          .replace(/ ([\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963])/g, '$1')
+          .trim();
+        lines.push(currentLine);
+      }
       this.extractedLines = lines;
     } catch (err) {
       console.error("Error extracting PDF text:", err);
