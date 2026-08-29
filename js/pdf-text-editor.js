@@ -94,7 +94,7 @@ class PDFTextEditor {
             clickY >= line.y - 4 &&
             clickY <= line.y + line.height + 4
           ) {
-            this.convertLineToEditableText(line, i);
+            this.convertLineToEditableText(line, i, clickX);
             return;
           }
         }
@@ -614,7 +614,7 @@ class PDFTextEditor {
   /**
    * Converts clicked text into realistic in-place editable text with identical font, weight, size, color and baseline.
    */
-  convertLineToEditableText(line, lineIndex) {
+  convertLineToEditableText(line, lineIndex, clickX = null) {
     if (lineIndex >= 0 && lineIndex < this.extractedLines.length) {
       this.extractedLines.splice(lineIndex, 1);
     }
@@ -622,7 +622,7 @@ class PDFTextEditor {
     const canvas = this.canvasManager.canvas;
     const bgImage = canvas.backgroundImage;
     if (!bgImage || !bgImage._element) {
-      this._placeEditableText(line, '#0f172a', 'transparent');
+      this._placeEditableText(line, '#0f172a', 'transparent', clickX);
       return;
     }
 
@@ -771,13 +771,13 @@ class PDFTextEditor {
     newImg.src = newDataUrl;
 
     // ── 4. PLACE REALISTIC EDITABLE ITEXT ──
-    this._placeEditableText(line, textColor, 'transparent');
+    this._placeEditableText(line, textColor, 'transparent', clickX);
   }
 
   /**
    * Helper: Places an authentic editable IText with matching font family, weight, and size
    */
-  _placeEditableText(line, fillColor, bgColor) {
+  _placeEditableText(line, fillColor, bgColor, clickX = null) {
     const isBold = line.fontWeight === 'bold' || line.fontWeight === '700' || line.fontWeight === '800';
     const color = fillColor || '#ffffff';
     const fontFam = line.fontFamily || "Arimo, 'Helvetica Neue', Helvetica, Arial, sans-serif";
@@ -836,7 +836,34 @@ class PDFTextEditor {
     this.canvasManager.canvas.add(textObj);
     this.canvasManager.canvas.setActiveObject(textObj);
     textObj.enterEditing();
-    textObj.selectAll();
+
+    // Position cursor precisely at the clicked letter/word on the canvas
+    if (clickX !== null && typeof clickX === 'number' && textObj.text && textObj.text.length > 0) {
+      const relX = Math.max(0, clickX - line.x);
+      const ctx = this.canvasManager.canvas.getContext();
+      ctx.save();
+      ctx.font = `${textObj.fontStyle || 'normal'} ${textObj.fontWeight || 'normal'} ${textObj.fontSize}px ${textObj.fontFamily}`;
+      let accumW = 0;
+      let targetIdx = textObj.text.length;
+      for (let i = 0; i < textObj.text.length; i++) {
+        const cW = ctx.measureText(textObj.text[i]).width;
+        if (relX < accumW + (cW / 2)) {
+          targetIdx = i;
+          break;
+        }
+        accumW += cW;
+      }
+      ctx.restore();
+
+      textObj.selectionStart = targetIdx;
+      textObj.selectionEnd = targetIdx;
+      if (textObj.hiddenTextarea) {
+        textObj.hiddenTextarea.selectionStart = targetIdx;
+        textObj.hiddenTextarea.selectionEnd = targetIdx;
+        textObj.hiddenTextarea.focus();
+      }
+    }
+
     this.canvasManager.canvas.renderAll();
 
     // Firmly preserve exact scroll and zoom position across asynchronous focus events
@@ -858,8 +885,6 @@ class PDFTextEditor {
     }
 
     this.canvasManager.saveState();
-    this.canvasManager.showInlineTextEditorPopup(textObj);
-    this.canvasManager.showToast('Text ready to edit! Type or move.', 'success');
   }
 
   /**
