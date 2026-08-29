@@ -1101,6 +1101,7 @@ label {
     top: 14px;
   }
 
+  .inspector-sidebar,
   .properties-sidebar {
     position: absolute;
     right: 0;
@@ -1111,10 +1112,12 @@ label {
     box-shadow: -4px 0 24px rgba(0, 0, 0, 0.75);
     background: #0f172a;
     transition: transform var(--transition-normal);
+    max-width: 85vw;
   }
+  .inspector-sidebar.open-mobile,
   .properties-sidebar.open-mobile {
     transform: translateX(0);
-    width: var(--inspector-width);
+    width: min(var(--inspector-width), 85vw);
   }
 
   .canvas-workspace {

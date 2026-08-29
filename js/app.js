@@ -314,13 +314,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btnToggleInspectorMobile = document.getElementById('btn-toggle-inspector-mobile');
       const backdrop = document.getElementById('sidebar-backdrop');
       const pagesSidebar = document.getElementById('pages-sidebar');
-      const propsSidebar = document.getElementById('properties-sidebar');
+      const propsSidebar = document.getElementById('inspector-sidebar') || document.getElementById('properties-sidebar');
 
       const closeDrawers = () => {
         pagesSidebar?.classList.remove('open-mobile');
         propsSidebar?.classList.remove('open-mobile');
         backdrop?.classList.remove('active');
       };
+
+      document.getElementById('btn-toggle-inspector')?.addEventListener('click', () => {
+        if (window.innerWidth <= 992) {
+          closeDrawers();
+        }
+      });
 
       btnTogglePagesMobile?.addEventListener('click', () => {
         const isOpen = pagesSidebar?.classList.toggle('open-mobile');
