@@ -863,41 +863,15 @@ class CanvasManager {
    */
   updatePageBackground(croppedDataUrl, newW, newH) {
     this.setPageBackground(croppedDataUrl, newW, newH);
-  }
-
-  /**
-   * Serializes current canvas objects (excluding background image)
-   */
-  savePageAnnotations() {
-    return this.canvas.toDatalessJSON();
-  }
-
-  /**
-   * Deserializes annotations onto current canvas while preserving clean page background
-   */
-  async loadPageAnnotations(jsonObj) {
-    if (!jsonObj) {
-      const existingObjs = this.canvas.getObjects().slice();
-      existingObjs.forEach(o => this.canvas.remove(o));
-      this.canvas.renderAll();
-      return;
+    const pageData = this.pdfEngine?.getCurrentPage();
+    if (pageData) {
+      pageData.renderWidth = newW;
+      pageData.renderHeight = newH;
+      pageData.originalWidth = newW;
+      pageData.originalHeight = newH;
+      if (!pageData.fabricJSON) pageData.fabricJSON = {};
+      pageData.fabricJSON.customBgDataUrl = croppedDataUrl;
     }
-
-    const currentBg = this.canvas.backgroundImage;
-    return new Promise((resolve) => {
-      this.canvas.loadFromJSON(jsonObj, () => {
-        if (currentBg) {
-          // Use setBackgroundImage to properly re-register bg through Fabric's render queue
-          this.canvas.setBackgroundImage(currentBg, () => {
-            this.canvas.renderAll();
-            resolve(true);
-          });
-        } else {
-          this.canvas.renderAll();
-          resolve(true);
-        }
-      });
-    });
   }
 
   /**
@@ -1105,16 +1079,17 @@ class CanvasManager {
     if (!workspaceEl) return;
     const workspaceRect = workspaceEl.getBoundingClientRect();
 
-    const left = (wrapRect.left - workspaceRect.left) + (bound.left + bound.width / 2);
+    const zoom = this.zoomLevel || 1.0;
+    const left = (wrapRect.left - workspaceRect.left) + ((bound.left + bound.width / 2) * zoom);
     
-    // Position smartly: if object is near top of canvas (bound.top < 60), place toolbar BELOW the object so it never overlaps the text!
+    // Position smartly: if object is near top of canvas, place toolbar BELOW the object so it never overlaps the text!
     let top;
-    if (bound.top < 60) {
-      top = (wrapRect.top - workspaceRect.top) + bound.top + bound.height + 14;
+    if ((bound.top * zoom) < 60) {
+      top = (wrapRect.top - workspaceRect.top) + ((bound.top + bound.height) * zoom) + 14;
       ctxBar.style.transform = 'translate(-50%, 0)';
       ctxBar.style.marginTop = '0px';
     } else {
-      top = (wrapRect.top - workspaceRect.top) + bound.top - 12;
+      top = (wrapRect.top - workspaceRect.top) + (bound.top * zoom) - 12;
       ctxBar.style.transform = 'translate(-50%, -100%)';
       ctxBar.style.marginTop = '0px';
     }
@@ -1356,7 +1331,12 @@ class CanvasManager {
 
   rgbOrHexToHex(colorStr) {
     if (!colorStr) return '#0f172a';
-    if (colorStr.startsWith('#')) return colorStr;
+    if (colorStr.startsWith('#')) {
+      if (colorStr.length === 4) {
+        return '#' + colorStr[1] + colorStr[1] + colorStr[2] + colorStr[2] + colorStr[3] + colorStr[3];
+      }
+      return colorStr;
+    }
     const match = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
     if (match) {
       const r = parseInt(match[1]).toString(16).padStart(2, '0');
@@ -1387,11 +1367,18 @@ class CanvasManager {
     const toast = document.createElement('div');
     toast.className = `toast-msg toast-${type}`;
     
-    let icon = 'fa-info-circle';
-    if (type === 'success') icon = 'fa-circle-check text-success';
-    if (type === 'error') icon = 'fa-circle-exclamation text-danger';
+    let iconClass = 'fa-info-circle';
+    if (type === 'success') iconClass = 'fa-circle-check text-success';
+    if (type === 'error') iconClass = 'fa-circle-exclamation text-danger';
 
-    toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+    const icon = document.createElement('i');
+    icon.className = `fa-solid ${iconClass}`;
+
+    const span = document.createElement('span');
+    span.textContent = String(message);
+
+    toast.appendChild(icon);
+    toast.appendChild(span);
     container.appendChild(toast);
 
     setTimeout(() => {
@@ -1399,3 +1386,4 @@ class CanvasManager {
     }, 3000);
   }
 }
+

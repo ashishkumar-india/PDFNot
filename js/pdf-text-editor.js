@@ -449,7 +449,7 @@ class PDFTextEditor {
       // Extract embedded PDF images so they can be clicked, replaced, resized, or deleted
       if (!pageData.extractedImages || pageData.extractedImages.length === 0) {
         try {
-          await this.pdfEngine.extractImagesFromPage(pageData);
+          await this.pdfEngine.extractPageImages(pageIndex);
         } catch (imgErr) {
           console.warn("Could not extract embedded images:", imgErr);
         }
@@ -1268,27 +1268,41 @@ class PDFTextEditor {
   }
 
   /**
-   * Find & Replace across all canvas text objects
+   * Find & Replace across all canvas text objects & unclicked PDF document text lines
    */
   executeFindAndReplace() {
     const findStr = document.getElementById('input-find-text')?.value.trim();
-    const replaceStr = document.getElementById('input-replace-text')?.value;
+    const replaceStr = document.getElementById('input-replace-text')?.value ?? '';
 
     if (!findStr) {
       alert("Please enter text to find.");
       return;
     }
 
+    const escapedFind = findStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedFind, 'gi');
     let matchCount = 0;
-    const objects = this.canvasManager.canvas.getObjects();
 
+    // 1. Find & replace in already converted canvas IText objects
+    const objects = this.canvasManager.canvas.getObjects();
     objects.forEach(obj => {
-      if (obj.type === 'i-text' && obj.text && obj.text.toLowerCase().includes(findStr.toLowerCase())) {
+      if ((obj.type === 'i-text' || obj.type === 'text') && obj.text && regex.test(obj.text)) {
         matchCount++;
-        const regex = new RegExp(findStr, 'gi');
-        obj.set('text', obj.text.replace(regex, replaceStr));
+        obj.set('text', obj.text.replace(regex, () => replaceStr));
       }
     });
+
+    // 2. Find & convert matching raw PDF text lines that haven't been clicked yet
+    if (this.extractedLines && this.extractedLines.length > 0) {
+      for (let i = this.extractedLines.length - 1; i >= 0; i--) {
+        const line = this.extractedLines[i];
+        if (line && line.text && regex.test(line.text)) {
+          matchCount++;
+          line.text = line.text.replace(regex, () => replaceStr);
+          this.convertLineToEditableText(line, i);
+        }
+      }
+    }
 
     if (matchCount > 0) {
       this.canvasManager.canvas.renderAll();

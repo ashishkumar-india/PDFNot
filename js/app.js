@@ -116,6 +116,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!pageData) return;
 
+      this._renderSequenceToken = (this._renderSequenceToken || 0) + 1;
+      const token = this._renderSequenceToken;
+
       this.showLoader(`Rendering Page ${pageIndex + 1}...`);
 
       try {
@@ -127,6 +130,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!bgDataUrl) {
           bgDataUrl = await pdfEngine.renderPageBackground(pageIndex);
         }
+
+        if (token !== this._renderSequenceToken) return;
         
         if (bgDataUrl) {
           await canvasManager.setPageBackground(bgDataUrl, renderW, renderH);
@@ -135,6 +140,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           canvasManager.canvas.setHeight(renderH);
           canvasManager.canvas.calcOffset();
         }
+
+        if (token !== this._renderSequenceToken) return;
 
         await canvasManager.loadPageAnnotations(pageData.fabricJSON);
         canvasManager.resetHistory();
@@ -165,9 +172,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Extract text bounding boxes for click-to-edit detection
-        setTimeout(() => pdfTextEditor.extractTextFromCurrentPage(), 150);
+        setTimeout(() => {
+          if (token === this._renderSequenceToken) {
+            pdfTextEditor.extractTextFromCurrentPage();
+          }
+        }, 150);
       } finally {
-        this.hideLoader();
+        if (token === this._renderSequenceToken) {
+          this.hideLoader();
+        }
       }
     },
 
@@ -371,8 +384,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         this.switchToPage(pdfEngine.currentPageIndex + 1);
       });
       document.getElementById('current-page-num')?.addEventListener('change', (e) => {
-        const val = parseInt(e.target.value) - 1;
-        this.switchToPage(val);
+        const parsed = parseInt(e.target.value);
+        if (isNaN(parsed) || parsed < 1) {
+          e.target.value = pdfEngine.currentPageIndex + 1;
+          return;
+        }
+        const targetPage = Math.min(Math.max(parsed, 1), pdfEngine.pagesData.length);
+        e.target.value = targetPage;
+        this.switchToPage(targetPage - 1);
       });
 
       // Undo / Redo
@@ -1311,8 +1330,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const imgBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
         const embeddedImage = await pdfDoc.embedPng(imgBytes);
 
-        const width = pData.originalWidth || 595;
-        const height = pData.originalHeight || 842;
+        const width = pData.renderWidth || pData.originalWidth || 595;
+        const height = pData.renderHeight || pData.originalHeight || 842;
 
         const page = pdfDoc.addPage([width, height]);
         page.drawImage(embeddedImage, { x: 0, y: 0, width, height });

@@ -101,6 +101,11 @@ class CropFilterManager {
     if (activeObj && activeObj.type === 'image') {
       // Update selected image source
       activeObj.setSrc(croppedDataUrl, () => {
+        activeObj.set({
+          scaleX: 1,
+          scaleY: 1
+        });
+        activeObj.setCoords();
         this.canvasManager.canvas.renderAll();
         this.canvasManager.saveState();
       });

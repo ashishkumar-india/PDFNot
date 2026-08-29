@@ -40,6 +40,8 @@ class PDFEngine {
         this.pagesData.push({
           id: 'page_' + i + '_' + Date.now(),
           pageNum: i,
+          originalPdfPageNum: i,
+          isCustom: false,
           originalWidth: viewport.width,
           originalHeight: viewport.height,
           rotation: 0,
@@ -75,6 +77,8 @@ class PDFEngine {
         this.pagesData = [{
           id: 'page_img_' + Date.now(),
           pageNum: 1,
+          originalPdfPageNum: null,
+          isCustom: true,
           originalWidth: img.naturalWidth || 800,
           originalHeight: img.naturalHeight || 1100,
           rotation: 0,
@@ -122,6 +126,8 @@ class PDFEngine {
     this.pagesData = [{
       id: 'page_blank_' + Date.now(),
       pageNum: 1,
+      originalPdfPageNum: null,
+      isCustom: true,
       originalWidth: width,
       originalHeight: height,
       rotation: 0,
@@ -145,14 +151,18 @@ class PDFEngine {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, defaultW, defaultH);
+    const dataUrl = canvas.toDataURL('image/png');
 
     const newPage = {
       id: 'page_custom_' + Date.now(),
       pageNum: this.pagesData.length + 1,
+      originalPdfPageNum: null,
+      isCustom: true,
       originalWidth: defaultW,
       originalHeight: defaultH,
       rotation: 0,
-      bgDataUrl: canvas.toDataURL('image/png'),
+      bgDataUrl: dataUrl,
+      originalDataUrl: dataUrl,
       fabricJSON: null
     };
 
@@ -173,7 +183,7 @@ class PDFEngine {
     }
 
     this.pagesData.splice(index, 1);
-    // Re-index page numbers
+    // Re-index display page numbers only (keeping originalPdfPageNum intact)
     this.pagesData.forEach((p, idx) => {
       p.pageNum = idx + 1;
     });
@@ -200,7 +210,7 @@ class PDFEngine {
     page.rotation = (page.rotation + degrees) % 360;
     if (page.rotation < 0) page.rotation += 360;
 
-    // For image/blank docs: save original before clearing so rotation can be re-applied
+    // For image/blank/custom docs: save original before clearing so rotation can be re-applied
     if (page.bgDataUrl && !page.originalDataUrl) {
       page.originalDataUrl = page.bgDataUrl;
     }
@@ -229,8 +239,8 @@ class PDFEngine {
       return pageData.bgDataUrl;
     }
 
-    if (this.currentDoc && this.currentDoc.type === 'pdf' && this.currentDoc.pdfDocProxy) {
-      const pdfPage = await this.currentDoc.pdfDocProxy.getPage(pageData.pageNum);
+    if (this.currentDoc && this.currentDoc.type === 'pdf' && this.currentDoc.pdfDocProxy && !pageData.isCustom && pageData.originalPdfPageNum && pageData.originalPdfPageNum <= this.currentDoc.pdfDocProxy.numPages) {
+      const pdfPage = await this.currentDoc.pdfDocProxy.getPage(pageData.originalPdfPageNum);
       
       // Calculate rotation
       const totalRotation = (pdfPage.rotate + pageData.rotation) % 360;
@@ -256,17 +266,20 @@ class PDFEngine {
       pageData.renderHeight = viewport.height / this.renderScale;
       return pageData.bgDataUrl;
     } else {
-      // Fallback for image / blank docs
+      // Fallback for image / blank / custom added pages
+      if (!pageData.bgDataUrl && pageData.originalDataUrl) {
+        pageData.bgDataUrl = pageData.originalDataUrl;
+      }
       if (!pageData.bgDataUrl) {
-        // bgDataUrl was cleared (e.g., after rotation) — cannot re-render without original source
         pageData.renderWidth = pageData.originalWidth || 794;
         pageData.renderHeight = pageData.originalHeight || 1123;
         return null;
       }
 
       // If rotation is non-zero and we haven't rotated yet, apply rotation via canvas
-      if (pageData.rotation !== 0 && !pageData._rotationApplied) {
-        const rotated = await this._rotateImageDataUrl(pageData.bgDataUrl, pageData.rotation);
+      if (pageData.rotation !== 0 && pageData._rotationApplied !== pageData.rotation) {
+        const sourceUrl = pageData.originalDataUrl || pageData.bgDataUrl;
+        const rotated = await this._rotateImageDataUrl(sourceUrl, pageData.rotation);
         if (rotated) {
           pageData.bgDataUrl = rotated;
           pageData._rotationApplied = pageData.rotation;
@@ -320,175 +333,18 @@ class PDFEngine {
   }
 
   /**
-   * Extracts and groups all text lines from PDF page for direct in-place editing with exact color and background matching
-   */
-  async extractPageTextLines(pageIndex, renderedCanvasCtx = null) {
-    const pageData = this.pagesData[pageIndex];
-    if (!pageData) return [];
-
-    if (pageData.extractedTextLines && pageData.extractedTextLines.length > 0) {
-      return pageData.extractedTextLines;
-    }
-
-    if (this.currentDoc && this.currentDoc.type === 'pdf' && this.currentDoc.pdfDocProxy) {
-      try {
-        const pdfPage = await this.currentDoc.pdfDocProxy.getPage(pageData.pageNum);
-        const totalRotation = (pdfPage.rotate + pageData.rotation) % 360;
-        
-        const displayW = pageData.renderWidth || pageData.originalWidth || 794;
-        const originalW = pageData.originalWidth || 595;
-        const scale = displayW / originalW;
-
-        const viewport = pdfPage.getViewport({ scale: scale, rotation: totalRotation });
-        const textContent = await pdfPage.getTextContent();
-
-        if (!textContent.items || textContent.items.length === 0) {
-          pageData.extractedTextLines = [];
-          return [];
-        }
-
-        const parsedItems = [];
-        textContent.items.forEach((item, idx) => {
-          const str = item.str;
-          if (!str || str.trim().length === 0) return;
-
-          const tx = item.transform[4];
-          const ty = item.transform[5];
-          const rawFontSize = Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1]);
-
-          const [vx, vy] = viewport.convertToViewportPoint(tx, ty);
-          const fontSize = Math.round(rawFontSize * scale);
-          const itemWidth = item.width * scale;
-          const posX = Math.round(vx);
-          const posY = Math.round(vy - fontSize * 0.9);
-          const itemH = Math.round(fontSize * 1.25);
-          const itemW = Math.round(itemWidth || str.length * (fontSize * 0.55));
-
-          // Sample exact text color and background color
-          const { bgColor, textColor } = this.sampleColors(renderedCanvasCtx, posX, posY, itemW, itemH);
-
-          parsedItems.push({
-            id: 'txt_' + idx,
-            text: str,
-            x: posX,
-            y: posY,
-            width: itemW,
-            height: itemH,
-            fontSize: Math.max(fontSize, 11),
-            fontFamily: this.mapFontFamily(item.fontName),
-            color: textColor,
-            bgColor: bgColor
-          });
-        });
-
-        parsedItems.sort((a, b) => (Math.abs(a.y - b.y) > 6 ? a.y - b.y : a.x - b.x));
-
-        const lines = [];
-        let currentLine = null;
-
-        parsedItems.forEach(item => {
-          if (!currentLine) {
-            currentLine = { ...item };
-            return;
-          }
-
-          const isSameY = Math.abs(item.y - currentLine.y) < 7;
-          const isCloseX = (item.x - (currentLine.x + currentLine.width)) < (item.fontSize * 1.5);
-
-          if (isSameY && isCloseX) {
-            currentLine.text += ' ' + item.text;
-            currentLine.width = (item.x + item.width) - currentLine.x;
-            currentLine.height = Math.max(currentLine.height, item.height);
-          } else {
-            lines.push(currentLine);
-            currentLine = { ...item };
-          }
-        });
-
-        if (currentLine) lines.push(currentLine);
-        pageData.extractedTextLines = lines;
-        return lines;
-      } catch (err) {
-        console.error("Error extracting text lines from PDF:", err);
-        return [];
-      }
-    }
-    return [];
-  }
-
-  /**
-   * Samples exact text foreground and background color from rendered canvas
-   */
-  sampleColors(ctx, x, y, width, height) {
-    let bgColor = '#ffffff';
-    let textColor = '#0f172a';
-
-    if (!ctx) return { bgColor, textColor };
-
-    try {
-      const cW = ctx.canvas.width;
-      const cH = ctx.canvas.height;
-
-      // 1. Sample Background Color from 2px above the text top-left
-      const bgX = Math.max(0, Math.min(x + 2, cW - 1));
-      const bgY = Math.max(0, Math.min(y - 2, cH - 1));
-      const bgData = ctx.getImageData(bgX, bgY, 1, 1).data;
-      if (bgData[3] > 50) {
-        bgColor = `rgb(${bgData[0]}, ${bgData[1]}, ${bgData[2]})`;
-      }
-
-      // 2. Sample Text Color: Find highest contrast non-background pixel inside text
-      const tX = Math.max(0, Math.min(x, cW - 1));
-      const tY = Math.max(0, Math.min(y, cH - 1));
-      const tW = Math.min(Math.max(width, 8), cW - tX);
-      const tH = Math.min(Math.max(height, 8), cH - tY);
-
-      if (tW > 0 && tH > 0) {
-        const imgData = ctx.getImageData(tX, tY, tW, tH).data;
-        let maxContrast = 0;
-        let bestR = 15, bestG = 23, bestB = 42;
-
-        for (let i = 0; i < imgData.length; i += 16) {
-          const r = imgData[i];
-          const g = imgData[i + 1];
-          const b = imgData[i + 2];
-          const a = imgData[i + 3];
-
-          if (a > 120) {
-            const dist = Math.abs(r - bgData[0]) + Math.abs(g - bgData[1]) + Math.abs(b - bgData[2]);
-            if (dist > maxContrast) {
-              maxContrast = dist;
-              bestR = r;
-              bestG = g;
-              bestB = b;
-            }
-          }
-        }
-
-        if (maxContrast > 30) {
-          textColor = `rgb(${bestR}, ${bestG}, ${bestB})`;
-        }
-      }
-    } catch (e) {
-      // Fallback to defaults
-    }
-
-    return { bgColor, textColor };
-  }
-
-  /**
    * Extracts embedded raster images from PDF pages as movable objects
    */
   async extractPageImages(pageIndex) {
     const pageData = this.pagesData[pageIndex];
-    if (!pageData || !this.currentDoc || this.currentDoc.type !== 'pdf' || !this.currentDoc.pdfDocProxy) return [];
+    if (!pageData || !this.currentDoc || this.currentDoc.type !== 'pdf' || !this.currentDoc.pdfDocProxy || pageData.isCustom || !pageData.originalPdfPageNum) return [];
 
     if (pageData.extractedImages) {
       return pageData.extractedImages;
     }
 
     try {
-      const pdfPage = await this.currentDoc.pdfDocProxy.getPage(pageData.pageNum);
+      const pdfPage = await this.currentDoc.pdfDocProxy.getPage(pageData.originalPdfPageNum);
       const opList = await pdfPage.getOperatorList();
       const displayW = pageData.renderWidth || pageData.originalWidth || 794;
       const originalW = pageData.originalWidth || 595;
@@ -618,14 +474,9 @@ class PDFEngine {
       const imgBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
       const embeddedImage = await pdfDoc.embedPng(imgBytes);
 
-      // Use renderWidth/renderHeight (actual rendered pixel size) for accurate export dimensions
-      const width = pageData.renderWidth || pageData.originalWidth || 595;
-      const height = pageData.renderHeight || pageData.originalHeight || 842;
-
-      // Handle orientation if rotated 90 or 270 deg
-      const isSwapped = (pageData.rotation === 90 || pageData.rotation === 270);
-      const finalW = isSwapped ? height : width;
-      const finalH = isSwapped ? width : height;
+      // Use renderWidth/renderHeight (already rotation-adjusted and scale-exact) for PDF-Lib page size
+      const finalW = pageData.renderWidth || pageData.originalWidth || 595;
+      const finalH = pageData.renderHeight || pageData.originalHeight || 842;
 
       const page = pdfDoc.addPage([finalW, finalH]);
       page.drawImage(embeddedImage, {

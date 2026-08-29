@@ -157,19 +157,30 @@ class BackgroundRemover {
     for (let x = 0; x < w; x += 4) {
       const topIdx = x * 4;
       const btmIdx = ((h - 1) * w + x) * 4;
-      borderLumSum += (0.299 * data[topIdx] + 0.587 * data[topIdx + 1] + 0.114 * data[topIdx + 2]);
-      borderLumSum += (0.299 * data[btmIdx] + 0.587 * data[btmIdx + 1] + 0.114 * data[btmIdx + 2]);
-      borderCount += 2;
+      if (data[topIdx + 3] > 50) {
+        borderLumSum += (0.299 * data[topIdx] + 0.587 * data[topIdx + 1] + 0.114 * data[topIdx + 2]);
+        borderCount++;
+      }
+      if (data[btmIdx + 3] > 50) {
+        borderLumSum += (0.299 * data[btmIdx] + 0.587 * data[btmIdx + 1] + 0.114 * data[btmIdx + 2]);
+        borderCount++;
+      }
     }
     for (let y = 0; y < h; y += 4) {
       const leftIdx = (y * w) * 4;
       const rightIdx = (y * w + (w - 1)) * 4;
-      borderLumSum += (0.299 * data[leftIdx] + 0.587 * data[leftIdx + 1] + 0.114 * data[leftIdx + 2]);
-      borderLumSum += (0.299 * data[rightIdx] + 0.587 * data[rightIdx + 1] + 0.114 * data[rightIdx + 2]);
-      borderCount += 2;
+      if (data[leftIdx + 3] > 50) {
+        borderLumSum += (0.299 * data[leftIdx] + 0.587 * data[leftIdx + 1] + 0.114 * data[leftIdx + 2]);
+        borderCount++;
+      }
+      if (data[rightIdx + 3] > 50) {
+        borderLumSum += (0.299 * data[rightIdx] + 0.587 * data[rightIdx + 1] + 0.114 * data[rightIdx + 2]);
+        borderCount++;
+      }
     }
 
     const paperLum = borderCount > 0 ? (borderLumSum / borderCount) : 240;
+    const cutoff = Math.max(2, Math.round((tolerance || 20) * 0.3));
 
     // 2. High-sensitivity ink detection & thin-stroke opacity boosting
     for (let i = 0; i < data.length; i += 4) {
@@ -180,7 +191,7 @@ class BackgroundRemover {
 
       const delta = paperLum - lum;
 
-      if (delta <= 6) {
+      if (delta <= cutoff) {
         // Pure background paper -> transparent
         data[i + 3] = 0;
       } else {
