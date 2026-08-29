@@ -156,9 +156,10 @@ class CanvasManager {
     if (!workspace || !upperCanvas) return;
 
     let isPinching = false;
+    let lastPinchDistance = 0;
     let initialPinchDistance = 0;
-    let initialZoom = 1.0;
     let lastTapTime = 0;
+    let lastTapPos = { x: 0, y: 0 };
     let touchStartX = 0;
     let touchStartY = 0;
     let isTouchPanning = false;
@@ -175,7 +176,7 @@ class CanvasManager {
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        initialZoom = this.zoomLevel;
+        lastPinchDistance = initialPinchDistance;
 
         e.preventDefault();
         e.stopPropagation();
@@ -190,37 +191,46 @@ class CanvasManager {
           this.canvas.selection = false;
         }
 
+        const t = e.touches[0];
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTapTime;
-        if (tapLength < 300 && tapLength > 50 && !this.isEditingText()) {
+        const tapDist = Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y);
+
+        // Filtered double-tap to fit (only if tapped in same location and intentional)
+        if (tapLength < 280 && tapLength > 80 && tapDist < 25 && !this.isEditingText()) {
           e.preventDefault();
           this.zoomFit();
           lastTapTime = 0;
           return;
         }
         lastTapTime = currentTime;
+        lastTapPos = { x: t.clientX, y: t.clientY };
 
         if (this.activeTool === 'hand' || this.spacePressed) {
           isTouchPanning = true;
-          touchStartX = e.touches[0].clientX;
-          touchStartY = e.touches[0].clientY;
+          touchStartX = t.clientX;
+          touchStartY = t.clientY;
         }
       }
     };
 
     const handleTouchMove = (e) => {
-      // Active two-finger pinch zooming
-      if (e.touches.length >= 2 && isPinching && initialPinchDistance > 0) {
+      // Smoothed 2-finger pinch zooming with velocity damping
+      if (e.touches.length >= 2 && isPinching && lastPinchDistance > 0) {
         e.preventDefault();
         e.stopPropagation();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        if (currentDistance > 10) {
-          const factor = currentDistance / initialPinchDistance;
-          let newZoom = initialZoom * factor;
+        
+        if (currentDistance > 10 && lastPinchDistance > 10) {
+          const deltaRatio = currentDistance / lastPinchDistance;
+          // Apply 0.65 damping factor for smooth, controlled, non-jittery scaling
+          const dampenedFactor = 1 + (deltaRatio - 1) * 0.65;
+          let newZoom = this.zoomLevel * dampenedFactor;
           newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
           this.setZoom(parseFloat(newZoom.toFixed(2)));
+          lastPinchDistance = currentDistance;
         }
         return;
       }
@@ -240,6 +250,7 @@ class CanvasManager {
     const handleTouchEnd = (e) => {
       if (e.touches.length < 2) {
         initialPinchDistance = 0;
+        lastPinchDistance = 0;
         isPinching = false;
       }
       if (e.touches.length === 0) {
