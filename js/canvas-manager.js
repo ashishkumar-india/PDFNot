@@ -217,15 +217,15 @@ class CanvasManager {
       }
     };
 
-    // Passive false with capture phase to manage pinch-zoom cleanly
+    // Upper canvas handles pinch-zoom; workspace keeps listeners passive so native pull-to-refresh works
     upperCanvas.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-    workspace.addEventListener('touchstart', handleTouchStart, { passive: false });
+    workspace.addEventListener('touchstart', handleTouchStart, { passive: true });
 
     upperCanvas.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
-    workspace.addEventListener('touchmove', handleTouchMove, { passive: false });
+    workspace.addEventListener('touchmove', handleTouchMove, { passive: true });
 
-    upperCanvas.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
-    workspace.addEventListener('touchend', handleTouchEnd, { passive: false });
+    upperCanvas.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
+    workspace.addEventListener('touchend', handleTouchEnd, { passive: true });
   }
 
   isEditingText() {
