@@ -232,31 +232,63 @@ class PDFTextEditor {
 
   detectLocalImageTextRegion(clickX, clickY) {
     try {
-      const lowerCanvas = document.querySelector('.lower-canvas');
-      if (!lowerCanvas) return null;
+      const canvas = this.canvasManager.canvas;
+      const bgImage = canvas.backgroundImage;
+      if (!bgImage || !bgImage._element) {
+        return {
+          id: `img_click_${Date.now()}`,
+          text: 'Edit Text',
+          x: Math.max(0, clickX - 50),
+          y: Math.max(0, clickY - 14),
+          width: 130,
+          height: 30,
+          fontSize: 20,
+          fontFamily: 'Inter',
+          fontWeight: 'bold',
+          fontStyle: 'normal'
+        };
+      }
 
-      const w = lowerCanvas.width;
-      const h = lowerCanvas.height;
+      const imgEl = bgImage._element;
+      const scaleX = bgImage.scaleX || 1;
+      const scaleY = bgImage.scaleY || 1;
+      const imgW = imgEl.naturalWidth || imgEl.width;
+      const imgH = imgEl.naturalHeight || imgEl.height;
 
-      const boxW = Math.min(220, w - Math.max(0, clickX - 20));
-      const boxH = 40;
+      const pX = Math.round(clickX / scaleX);
+      const pY = Math.round(clickY / scaleY);
+
+      // Define safe text bounding box around click
+      const boxW = Math.min(Math.round(180 * scaleX), canvas.getWidth() - clickX);
+      const boxH = Math.min(Math.round(36 * scaleY), 70);
       const boxX = Math.max(0, clickX - 20);
-      const boxY = Math.max(0, clickY - 18);
+      const boxY = Math.max(0, clickY - 14);
 
       return {
         id: `img_click_${Date.now()}`,
-        text: 'Type Text Here',
+        text: 'Edit Text',
         x: boxX,
         y: boxY,
-        width: boxW,
-        height: boxH,
-        fontSize: 22,
+        width: Math.max(boxW, 80),
+        height: Math.max(boxH, 26),
+        fontSize: Math.max(Math.round(boxH * 0.72), 16),
         fontFamily: 'Inter',
         fontWeight: 'bold',
         fontStyle: 'normal'
       };
     } catch (e) {
-      return null;
+      return {
+        id: `img_click_${Date.now()}`,
+        text: 'Edit Text',
+        x: Math.max(0, clickX - 50),
+        y: Math.max(0, clickY - 14),
+        width: 130,
+        height: 30,
+        fontSize: 20,
+        fontFamily: 'Inter',
+        fontWeight: 'bold',
+        fontStyle: 'normal'
+      };
     }
   }
 
@@ -437,7 +469,9 @@ class PDFTextEditor {
    * Converts clicked text into realistic in-place editable text with identical font, weight, size, color and baseline.
    */
   convertLineToEditableText(line, lineIndex) {
-    this.extractedLines.splice(lineIndex, 1);
+    if (lineIndex >= 0 && lineIndex < this.extractedLines.length) {
+      this.extractedLines.splice(lineIndex, 1);
+    }
 
     const canvas = this.canvasManager.canvas;
     const bgImage = canvas.backgroundImage;
@@ -641,8 +675,11 @@ class PDFTextEditor {
 
     this.canvasManager.canvas.add(textObj);
     this.canvasManager.canvas.setActiveObject(textObj);
+    textObj.enterEditing();
+    textObj.selectAll();
     this.canvasManager.canvas.renderAll();
     this.canvasManager.saveState();
+    this.canvasManager.showToast('Text converted! Type to edit or drag to move.', 'success');
   }
 
   /**
