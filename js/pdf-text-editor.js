@@ -108,10 +108,6 @@ class PDFTextEditor {
     if (!pageData) return;
 
     if (!this.pdfEngine.currentDoc || this.pdfEngine.currentDoc.type !== 'pdf' || !this.pdfEngine.currentDoc.pdfDocProxy) {
-      // Auto-run OCR text detection on Image documents (JPG / PNG / Scans)
-      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
-        this.runOCRTextDetection();
-      }
       return;
     }
 
@@ -495,15 +491,17 @@ class PDFTextEditor {
       return;
     }
 
-    this.canvasManager.uiManager.showLoader("AI OCR: Detecting text on image...");
+    this.canvasManager.showToast("🔍 Scanning document text in background...", "info");
 
     try {
       const dataUrl = this.canvasManager.getCompositeDataURL('png', 1.0, false);
       const result = await Tesseract.recognize(dataUrl, 'eng', {
         logger: m => {
-          if (m.status === 'recognizing text') {
-            const pct = Math.round((m.progress || 0) * 100);
-            this.canvasManager.uiManager.showLoader(`AI OCR: Reading document (${pct}%)...`);
+          if (m.status === 'recognizing text' && m.progress) {
+            const pct = Math.round(m.progress * 100);
+            if (pct % 25 === 0) {
+              this.canvasManager.showToast(`OCR Progress: ${pct}%`, "info");
+            }
           }
         }
       });
@@ -533,13 +531,12 @@ class PDFTextEditor {
       });
 
       this.extractedLines = parsedLines;
-      this.canvasManager.showToast(`OCR Complete: ${parsedLines.length} text lines detected. Click any text to edit!`, 'success');
+      this.canvasManager.showToast(`✨ OCR Complete: ${parsedLines.length} text lines ready to edit!`, 'success');
     } catch (err) {
       console.error("OCR Error:", err);
-      alert("OCR failed: " + err.message);
+      this.canvasManager.showToast("OCR scan failed: " + err.message, "error");
     } finally {
       this.isOcrRunning = false;
-      this.canvasManager.uiManager.hideLoader();
     }
   }
 
