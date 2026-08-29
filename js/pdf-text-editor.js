@@ -303,14 +303,23 @@ class PDFTextEditor {
     if (!pageData) return;
 
     if (!this.pdfEngine.currentDoc || this.pdfEngine.currentDoc.type !== 'pdf' || !this.pdfEngine.currentDoc.pdfDocProxy) {
-      // For images, run instant 5ms line scan + silent background OCR for exact text strings!
+      // For image docs: auto-enable text edit mode so click-to-edit works immediately
       if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
+        if (!this.isTextEditMode) {
+          // Silently enable mode for images without requiring manual button click
+          this.isTextEditMode = true;
+          const btnEditText = document.getElementById('btn-edit-pdf-text');
+          if (btnEditText) btnEditText.classList.add('active');
+        }
         this.extractedLines = this.scanImageTextLines();
         // Silent AI OCR in background to extract exact words without freezing the UI!
         setTimeout(() => this.runOCRTextDetection(), 50);
       }
       return;
     }
+
+    // For PDFs: only extract if text edit mode is enabled
+    if (!this.isTextEditMode) return;
 
     try {
       const pdfPage = await this.pdfEngine.currentDoc.pdfDocProxy.getPage(pageData.pageNum);

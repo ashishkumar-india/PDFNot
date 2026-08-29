@@ -200,8 +200,16 @@ class PDFEngine {
     page.rotation = (page.rotation + degrees) % 360;
     if (page.rotation < 0) page.rotation += 360;
 
-    // Reset bgDataUrl so it gets re-rendered with new rotation
-    page.bgDataUrl = null;
+    // For image/blank docs: save original before clearing so rotation can be re-applied
+    if (page.bgDataUrl && !page.originalDataUrl) {
+      page.originalDataUrl = page.bgDataUrl;
+    }
+
+    // Reset so it gets re-rendered with new rotation
+    page.bgDataUrl = page.originalDataUrl || null;
+    page._rotationApplied = null; // Force re-rotation on next render
+    page.renderWidth = null;
+    page.renderHeight = null;
     // Clear cached text/image extraction so they recompute for new rotation
     page.extractedTextLines = null;
     page.extractedImages = null;
@@ -248,9 +256,67 @@ class PDFEngine {
       pageData.renderHeight = viewport.height / this.renderScale;
       return pageData.bgDataUrl;
     } else {
-      // Fallback for image / blank
+      // Fallback for image / blank docs
+      if (!pageData.bgDataUrl) {
+        // bgDataUrl was cleared (e.g., after rotation) — cannot re-render without original source
+        pageData.renderWidth = pageData.originalWidth || 794;
+        pageData.renderHeight = pageData.originalHeight || 1123;
+        return null;
+      }
+
+      // If rotation is non-zero and we haven't rotated yet, apply rotation via canvas
+      if (pageData.rotation !== 0 && !pageData._rotationApplied) {
+        const rotated = await this._rotateImageDataUrl(pageData.bgDataUrl, pageData.rotation);
+        if (rotated) {
+          pageData.bgDataUrl = rotated;
+          pageData._rotationApplied = pageData.rotation;
+          // Swap width/height for 90/270 rotations
+          const isSwapped = (pageData.rotation === 90 || pageData.rotation === 270);
+          const w = pageData.originalWidth || 794;
+          const h = pageData.originalHeight || 1123;
+          pageData.renderWidth = isSwapped ? h : w;
+          pageData.renderHeight = isSwapped ? w : h;
+        }
+      }
+
+      // Ensure renderWidth/renderHeight are always populated
+      if (!pageData.renderWidth) {
+        pageData.renderWidth = pageData.originalWidth || 794;
+        pageData.renderHeight = pageData.originalHeight || 1123;
+      }
       return pageData.bgDataUrl;
     }
+  }
+
+  /**
+   * Rotates an image dataUrl by degrees using an off-screen canvas
+   * @param {string} dataUrl
+   * @param {number} degrees - 90, 180, or 270
+   * @returns {Promise<string>} rotated dataUrl
+   */
+  _rotateImageDataUrl(dataUrl, degrees) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const rad = (degrees * Math.PI) / 180;
+        const isSwapped = (degrees === 90 || degrees === 270);
+        const w = isSwapped ? img.height : img.width;
+        const h = isSwapped ? img.width : img.height;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        ctx.translate(w / 2, h / 2);
+        ctx.rotate(rad);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
   }
 
   /**

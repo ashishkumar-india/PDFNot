@@ -118,7 +118,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const renderW = pageData.renderWidth || pageData.originalWidth || 794;
         const renderH = pageData.renderHeight || pageData.originalHeight || 1123;
 
-        await canvasManager.setPageBackground(bgDataUrl, renderW, renderH);
+        if (bgDataUrl) {
+          await canvasManager.setPageBackground(bgDataUrl, renderW, renderH);
+        } else {
+          // bgDataUrl null (e.g. image after rotation recomputation) — keep existing bg
+          canvasManager.canvas.setWidth(renderW);
+          canvasManager.canvas.setHeight(renderH);
+          canvasManager.canvas.calcOffset();
+        }
         await canvasManager.loadPageAnnotations(pageData.fabricJSON);
         canvasManager.resetHistory();
 
