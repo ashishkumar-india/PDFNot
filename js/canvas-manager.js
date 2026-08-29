@@ -776,10 +776,23 @@ class CanvasManager {
 
   // ==================== HISTORY (UNDO / REDO) ====================
 
+  resetHistory() {
+    this.isHistoryProcessing = true;
+    this.historyStack = [JSON.stringify(this.canvas.toDatalessJSON())];
+    this.historyIndex = 0;
+    this.isHistoryProcessing = false;
+    this.updateHistoryButtons();
+  }
+
   recordHistory() {
     if (this.isHistoryProcessing) return;
 
     const json = JSON.stringify(this.canvas.toDatalessJSON());
+    // Avoid duplicate history frames
+    if (this.historyStack.length > 0 && this.historyStack[this.historyIndex] === json) {
+      return;
+    }
+
     // Truncate redo states
     this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
     this.historyStack.push(json);
@@ -801,10 +814,13 @@ class CanvasManager {
       
       const currentBg = this.canvas.backgroundImage;
       this.canvas.loadFromJSON(state, () => {
-        this.canvas.backgroundImage = currentBg;
+        if (currentBg) {
+          this.canvas.backgroundImage = currentBg;
+        }
         this.canvas.renderAll();
         this.isHistoryProcessing = false;
         this.updateHistoryButtons();
+        this.showToast('Undo', 'info');
       });
     }
   }
@@ -817,10 +833,13 @@ class CanvasManager {
       
       const currentBg = this.canvas.backgroundImage;
       this.canvas.loadFromJSON(state, () => {
-        this.canvas.backgroundImage = currentBg;
+        if (currentBg) {
+          this.canvas.backgroundImage = currentBg;
+        }
         this.canvas.renderAll();
         this.isHistoryProcessing = false;
         this.updateHistoryButtons();
+        this.showToast('Redo', 'info');
       });
     }
   }

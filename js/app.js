@@ -120,6 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         await canvasManager.setPageBackground(bgDataUrl, renderW, renderH);
         await canvasManager.loadPageAnnotations(pageData.fabricJSON);
+        canvasManager.resetHistory();
 
         // Update Header Page Nav
         document.getElementById('current-page-num').value = pageIndex + 1;
