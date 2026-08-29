@@ -158,20 +158,29 @@ class CanvasManager {
       }
     });
 
-    // Auto-fit document width on mobile screen resize or orientation change
+    // Auto-fit document width on mobile: ONLY on actual width change (orientation/window resize)
+    // NOT on keyboard open/close, which only changes height — that was causing zoom-out on text tap!
+    let _lastResizeWidth = window.innerWidth;
     window.addEventListener('resize', () => {
       clearTimeout(this._mobileResizeTimer);
       this._mobileResizeTimer = setTimeout(() => {
-        if (window.innerWidth <= 768) {
+        const currentWidth = window.innerWidth;
+        const widthChanged = currentWidth !== _lastResizeWidth;
+        _lastResizeWidth = currentWidth;
+
+        // Only auto-fit when the width actually changed (true orientation/window change)
+        // Skip if only height changed (that's the soft keyboard opening on mobile)
+        if (widthChanged && currentWidth <= 768) {
           this.zoomFit();
         }
-        // Reposition floating context bar on resize in case object is selected
+
+        // Always reposition context bar if an object is selected
         const activeObj = this.canvas.getActiveObject();
         if (activeObj) {
           cancelAnimationFrame(this._selectionRafId);
           this._selectionRafId = requestAnimationFrame(() => this.positionFloatingContextBar(activeObj));
         }
-      }, 200);
+      }, 250);
     });
   }
 
@@ -194,17 +203,39 @@ class CanvasManager {
         const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         if (dist > 20) {
           isPinching = true;
-          this.canvas.selection = false;
           prevPinchDistance = dist;
+
+          // CRITICAL: Immediately cancel any Fabric selection or object drag
+          // that started when the first finger touched the screen.
+          // Without this, Fabric creates a selection rectangle or drags an object.
+          this.canvas.selection = false;
+          this.canvas.discardActiveObject();
+          // Stop Fabric from continuing to process this gesture
+          this.canvas._isCurrentlyDrawingSelection = false;
+          this.canvas._groupSelector = null;
+          this.canvas.renderAll();
+
+          // Prevent browser text-selection highlight during pinch
+          upperCanvas.style.userSelect = 'none';
+          upperCanvas.style.webkitUserSelect = 'none';
+          workspace.style.userSelect = 'none';
+          workspace.style.webkitUserSelect = 'none';
+
           e.preventDefault();
           e.stopPropagation();
         }
         return;
       }
 
-      // 1-FINGER TOUCH
+      // 1-FINGER TOUCH — ensure no pinch state leak
       if (e.touches.length === 1) {
         isPinching = false;
+        // Restore user-select after pinch ends
+        upperCanvas.style.userSelect = '';
+        upperCanvas.style.webkitUserSelect = '';
+        workspace.style.userSelect = '';
+        workspace.style.webkitUserSelect = '';
+        // On mobile, single-tap should never trigger drag-selection box
         if (window.innerWidth <= 768) {
           this.canvas.selection = false;
         }
@@ -222,7 +253,6 @@ class CanvasManager {
 
         const delta = currDistance - prevPinchDistance;
         // Calm continuous scaling: 550px denominator = natural gentle iOS/Google Maps speed
-        // (was 400 — was slightly too sensitive on small phones)
         const zoomFactor = 1 + (delta / 550);
 
         let newZoom = this.zoomLevel * zoomFactor;
@@ -243,6 +273,12 @@ class CanvasManager {
         prevPinchDistance = 0;
       }
       if (e.touches.length === 0) {
+        // Restore user-select after all fingers lifted
+        upperCanvas.style.userSelect = '';
+        upperCanvas.style.webkitUserSelect = '';
+        workspace.style.userSelect = '';
+        workspace.style.webkitUserSelect = '';
+        // Restore marquee selection only on desktop
         if (this.activeTool === 'select' && window.innerWidth > 768) {
           this.canvas.selection = true;
         }
