@@ -200,14 +200,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         container.appendChild(thumbItem);
 
-        pdfEngine.renderPageBackground(i)
-          .then(bgUrl => {
-            const previewWrap = document.getElementById(`thumb-preview-${i}`);
-            if (previewWrap) {
-              previewWrap.innerHTML = `<img src="${bgUrl}" alt="Page ${i + 1}">`;
-            }
-          })
-          .catch(err => console.warn(`Thumbnail render failed for page ${i + 1}:`, err));
+        // Stagger thumb renders to avoid simultaneous CPU-heavy decodes freezing the main thread
+        const renderDelay = i * 80;
+        setTimeout(() => {
+          pdfEngine.renderPageBackground(i)
+            .then(bgUrl => {
+              if (!bgUrl) return;
+              const previewWrap = document.getElementById(`thumb-preview-${i}`);
+              if (previewWrap) {
+                // Create a smaller thumb image (max 120px wide) for memory efficiency
+                const img = new Image();
+                img.src = bgUrl;
+                img.style.maxWidth = '100%';
+                img.alt = `Page ${i + 1}`;
+                previewWrap.innerHTML = '';
+                previewWrap.appendChild(img);
+              }
+            })
+            .catch(err => console.warn(`Thumbnail render failed for page ${i + 1}:`, err));
+        }, renderDelay);
       }
     },
 

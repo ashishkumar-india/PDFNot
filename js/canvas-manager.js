@@ -24,6 +24,7 @@ class CanvasManager {
     this.historyIndex = -1;
     this.isHistoryProcessing = false;
     this.maxHistory = 35;
+    this._historyDebounceTimer = null; // Debounce timer for rapid event flooding
 
     // Reference to parent app / pdf engine
     this.pdfEngine = null;
@@ -883,25 +884,38 @@ class CanvasManager {
   recordHistory() {
     if (this.isHistoryProcessing) return;
 
-    const json = JSON.stringify(this.canvas.toDatalessJSON());
-    // Avoid duplicate history frames
-    if (this.historyStack.length > 0 && this.historyStack[this.historyIndex] === json) {
-      return;
-    }
+    // Debounce: wait 300ms after last event before saving state.
+    // Prevents tab freeze when many events fire rapidly (e.g. brush strokes, filter sliders).
+    clearTimeout(this._historyDebounceTimer);
+    this._historyDebounceTimer = setTimeout(() => {
+      if (this.isHistoryProcessing) return;
 
-    // Truncate redo states
-    this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
-    this.historyStack.push(json);
+      const json = JSON.stringify(this.canvas.toDatalessJSON());
 
-    // Fix: Always increment index first, then trim overflow from front
-    // This prevents the off-by-one bug when maxHistory is exceeded
-    this.historyIndex++;
-    if (this.historyStack.length > this.maxHistory) {
-      this.historyStack.shift();
-      this.historyIndex = this.historyStack.length - 1;
-    }
+      // Guard: skip saving if state is identical to current
+      if (this.historyStack.length > 0 && this.historyStack[this.historyIndex] === json) {
+        return;
+      }
 
-    this.updateHistoryButtons();
+      // Guard: skip if JSON is unreasonably large (> 5MB) to prevent memory bloat
+      if (json.length > 5 * 1024 * 1024) {
+        console.warn('History: state too large to save (' + Math.round(json.length / 1024) + 'KB), skipping.');
+        return;
+      }
+
+      // Truncate redo states
+      this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
+      this.historyStack.push(json);
+
+      // Fix: Always increment index first, then trim overflow from front
+      this.historyIndex++;
+      if (this.historyStack.length > this.maxHistory) {
+        this.historyStack.shift();
+        this.historyIndex = this.historyStack.length - 1;
+      }
+
+      this.updateHistoryButtons();
+    }, 300);
   }
 
   undo() {

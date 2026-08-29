@@ -114,11 +114,28 @@ class PDFTextEditor {
       const lowerCanvas = document.querySelector('.lower-canvas');
       if (!lowerCanvas) return [];
 
-      const w = lowerCanvas.width;
-      const h = lowerCanvas.height;
+      let srcCanvas = lowerCanvas;
+      let w = lowerCanvas.width;
+      let h = lowerCanvas.height;
+
+      // PERFORMANCE: Downsample large canvases before pixel scanning to prevent tab freeze.
+      // Target max 800px wide for scan — enough to detect text bands accurately.
+      const MAX_SCAN_WIDTH = 800;
+      if (w > MAX_SCAN_WIDTH) {
+        const scale = MAX_SCAN_WIDTH / w;
+        const offscreen = document.createElement('canvas');
+        offscreen.width = Math.round(w * scale);
+        offscreen.height = Math.round(h * scale);
+        const offCtx = offscreen.getContext('2d');
+        offCtx.drawImage(lowerCanvas, 0, 0, offscreen.width, offscreen.height);
+        srcCanvas = offscreen;
+        w = offscreen.width;
+        h = offscreen.height;
+      }
+
       if (w === 0 || h === 0) return [];
 
-      const ctx = lowerCanvas.getContext('2d');
+      const ctx = srcCanvas.getContext('2d');
       const imgData = ctx.getImageData(0, 0, w, h);
       const data = imgData.data;
 
@@ -311,9 +328,12 @@ class PDFTextEditor {
           const btnEditText = document.getElementById('btn-edit-pdf-text');
           if (btnEditText) btnEditText.classList.add('active');
         }
+        // Run fast pixel scan (no OCR auto-run — user must click OCR button manually)
         this.extractedLines = this.scanImageTextLines();
-        // Silent AI OCR in background to extract exact words without freezing the UI!
-        setTimeout(() => this.runOCRTextDetection(), 50);
+        // Show a non-blocking hint to user that OCR is available for better text detection
+        setTimeout(() => {
+          this.canvasManager.showToast('Click anywhere to edit. For text detection, use the OCR button.', 'info');
+        }, 600);
       }
       return;
     }
