@@ -156,27 +156,19 @@ class CanvasManager {
     if (!workspace || !upperCanvas) return;
 
     let isPinching = false;
-    let lastPinchDistance = 0;
     let initialPinchDistance = 0;
-    let lastTapTime = 0;
-    let lastTapPos = { x: 0, y: 0 };
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let isTouchPanning = false;
+    let initialPinchZoom = 1;
 
     const handleTouchStart = (e) => {
-      // 2-FINGER PINCH-ZOOM: Capture before Fabric creates selection box
+      // 2-FINGER PINCH-ZOOM: Capture cleanly before Fabric creates selection box
       if (e.touches.length >= 2) {
         isPinching = true;
-        isTouchPanning = false;
         this.canvas.selection = false;
-        this.canvas.discardActiveObject();
-        this.canvas.renderAll();
 
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        lastPinchDistance = initialPinchDistance;
+        initialPinchZoom = this.zoomLevel || 1;
 
         e.preventDefault();
         e.stopPropagation();
@@ -186,82 +178,46 @@ class CanvasManager {
       // 1-FINGER TOUCH
       if (e.touches.length === 1) {
         isPinching = false;
-        // On mobile, disable marquee drag box to prevent accidental blue selection rectangles
+        // On mobile, disable marquee drag box to prevent blue selection rectangles
         if (window.innerWidth <= 768) {
           this.canvas.selection = false;
-        }
-
-        const t = e.touches[0];
-        const currentTime = new Date().getTime();
-        const tapLength = currentTime - lastTapTime;
-        const tapDist = Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y);
-
-        // Filtered double-tap to fit (only if tapped in same location and intentional)
-        if (tapLength < 280 && tapLength > 80 && tapDist < 25 && !this.isEditingText()) {
-          e.preventDefault();
-          this.zoomFit();
-          lastTapTime = 0;
-          return;
-        }
-        lastTapTime = currentTime;
-        lastTapPos = { x: t.clientX, y: t.clientY };
-
-        if (this.activeTool === 'hand' || this.spacePressed) {
-          isTouchPanning = true;
-          touchStartX = t.clientX;
-          touchStartY = t.clientY;
         }
       }
     };
 
     const handleTouchMove = (e) => {
-      // Smoothed 2-finger pinch zooming with velocity damping
-      if (e.touches.length >= 2 && isPinching && lastPinchDistance > 0) {
+      // Stable, linear, non-accelerating 2-finger pinch zooming based on initial zoom
+      if (e.touches.length >= 2 && isPinching && initialPinchDistance > 10) {
         e.preventDefault();
         e.stopPropagation();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         
-        if (currentDistance > 10 && lastPinchDistance > 10) {
-          const deltaRatio = currentDistance / lastPinchDistance;
-          // Apply 0.65 damping factor for smooth, controlled, non-jittery scaling
-          const dampenedFactor = 1 + (deltaRatio - 1) * 0.65;
-          let newZoom = this.zoomLevel * dampenedFactor;
-          newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
-          this.setZoom(parseFloat(newZoom.toFixed(2)));
-          lastPinchDistance = currentDistance;
+        if (currentDistance > 10) {
+          const ratio = currentDistance / initialPinchDistance;
+          // Linear 0.70 scaling factor ensures gentle, calm, natural pinch response
+          const targetZoom = initialPinchZoom * (1 + (ratio - 1) * 0.70);
+          const clampedZoom = Math.min(Math.max(targetZoom, this.minZoom), this.maxZoom);
+          this.setZoom(parseFloat(clampedZoom.toFixed(2)));
         }
         return;
-      }
-
-      // One-finger hand panning
-      if (e.touches.length === 1 && isTouchPanning) {
-        e.preventDefault();
-        const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-        workspace.scrollLeft -= (currentX - touchStartX);
-        workspace.scrollTop -= (currentY - touchStartY);
-        touchStartX = currentX;
-        touchStartY = currentY;
       }
     };
 
     const handleTouchEnd = (e) => {
       if (e.touches.length < 2) {
-        initialPinchDistance = 0;
-        lastPinchDistance = 0;
         isPinching = false;
+        initialPinchDistance = 0;
       }
       if (e.touches.length === 0) {
-        isTouchPanning = false;
         if (this.activeTool === 'select' && window.innerWidth > 768) {
           this.canvas.selection = true;
         }
       }
     };
 
-    // Capture phase on upperCanvas to intercept before Fabric.js internal listeners
+    // Passive false with capture phase to manage pinch-zoom cleanly
     upperCanvas.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
     workspace.addEventListener('touchstart', handleTouchStart, { passive: false });
 

@@ -89,10 +89,10 @@ class PDFTextEditor {
         for (let i = 0; i < this.extractedLines.length; i++) {
           const line = this.extractedLines[i];
           if (
-            clickX >= line.x - 12 &&
-            clickX <= line.x + line.width + 12 &&
-            clickY >= line.y - 8 &&
-            clickY <= line.y + line.height + 8
+            clickX >= line.x - 6 &&
+            clickX <= line.x + line.width + 6 &&
+            clickY >= line.y - 4 &&
+            clickY <= line.y + line.height + 4
           ) {
             this.convertLineToEditableText(line, i);
             return;
