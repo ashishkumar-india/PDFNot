@@ -1125,23 +1125,78 @@ label {
 /* 3. Mobile Phones (max-width: 768px) */
 @media (max-width: 768px) {
   :root {
-    --header-height: 50px;
+    --header-height: 48px;
   }
 
   .app-header {
-    padding: 0 8px;
+    padding: 0 6px;
     gap: 4px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    height: 48px;
   }
 
   .logo-subtitle,
   .divider-v,
   .history-controls,
-  #btn-keyboard-shortcuts {
+  #btn-keyboard-shortcuts,
+  #btn-new-blank,
+  .doc-title-wrapper,
+  .export-group #btn-export-options {
     display: none !important;
+  }
+
+  .header-left {
+    gap: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .header-center {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .header-right {
+    gap: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .file-actions {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .file-actions span,
+  .btn-ghost span,
+  .btn-primary span,
+  .export-group .btn-success span {
+    display: none !important;
+  }
+
+  .file-actions label,
+  .file-actions .btn,
+  .export-group .btn-success {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    margin: 0;
   }
 
   .logo-title {
     font-size: 13px;
+    white-space: nowrap;
   }
   .app-logo {
     gap: 4px;
@@ -1152,38 +1207,18 @@ label {
     font-size: 13px;
   }
 
-  .header-left {
-    gap: 4px;
-  }
-
-  .header-center {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .doc-title-wrapper {
-    display: none;
-  }
-
   .page-navigation {
     padding: 2px 4px;
+    gap: 2px;
   }
   .page-counter {
     font-size: 11px;
-    margin: 0 4px;
+    margin: 0 2px;
+    white-space: nowrap;
   }
   .page-counter input {
-    width: 28px;
+    width: 26px;
     font-size: 11px;
-  }
-
-  .header-right {
-    gap: 4px;
-  }
-
-  .export-group .btn-success {
-    padding: 6px 10px;
-    font-size: 12px;
   }
 
   /* Floating Toolbar on Mobile - Horizontal Bottom Dock */
@@ -1290,22 +1325,28 @@ label {
 @media (max-width: 480px) {
   .app-header {
     padding: 0 4px;
+    gap: 2px;
   }
-  .logo-title span.badge-pro {
+  .app-logo .logo-text {
     display: none;
   }
-  .export-group .btn-success span {
-    display: none;
+  .page-navigation {
+    padding: 1px 3px;
   }
-  .export-group .btn-success {
-    padding: 6px 10px;
+  .page-counter {
+    font-size: 10px;
+  }
+  .page-counter input {
+    width: 22px;
+    font-size: 10px;
   }
   .floating-toolbar {
     padding: 4px 6px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   }
   .tool-btn {
-    width: 35px;
-    height: 35px;
+    width: 36px;
+    height: 36px;
     font-size: 14px;
   }
 }

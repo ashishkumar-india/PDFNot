@@ -119,6 +119,16 @@ class CanvasManager {
         }
       }
     });
+
+    // Auto-fit document width on mobile screen resize or orientation change
+    window.addEventListener('resize', () => {
+      clearTimeout(this._mobileResizeTimer);
+      this._mobileResizeTimer = setTimeout(() => {
+        if (window.innerWidth <= 768) {
+          this.zoomFit();
+        }
+      }, 150);
+    });
   }
 
   /**
@@ -420,15 +430,15 @@ class CanvasManager {
 
     if (workspace && pageW > 0 && pageH > 0) {
       const isMobile = window.innerWidth <= 768;
-      // On mobile use compact padding (16px) so content maximally fills screen
-      const padX = isMobile ? 16 : 40;
-      const padY = isMobile ? 16 : 40;
+      // On mobile screens use 8px padding so document spans the full screen width for clear readability
+      const padX = isMobile ? 8 : 40;
+      const padY = isMobile ? 8 : 40;
       const availW = Math.max(workspace.clientWidth - padX, 80);
       const availH = Math.max(workspace.clientHeight - padY, 80);
       const scaleW = availW / pageW;
       const scaleH = availH / pageH;
       
-      // On mobile screens, fit strictly by width for optimal readability
+      // On mobile screens, fit strictly by width so document is large, readable, and vertically scrollable
       const fitZoom = isMobile ? scaleW : Math.min(scaleW, scaleH, 1.0);
       this.setZoom(Math.max(parseFloat(fitZoom.toFixed(2)), this.minZoom));
     }
