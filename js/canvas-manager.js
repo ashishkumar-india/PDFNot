@@ -910,6 +910,69 @@ class CanvasManager {
     return dataUrl;
   }
 
+  // ==================== MULTI-PAGE ANNOTATION PERSISTENCE ====================
+
+  /**
+   * Serializes all canvas objects and current background image (including erased text modifications)
+   */
+  savePageAnnotations() {
+    const objectsJSON = this.canvas.getObjects().map(obj => obj.toObject(['id', 'selectable', 'evented', 'lockMovementX', 'lockMovementY']));
+    let bgDataUrl = null;
+    if (this.canvas.backgroundImage && this.canvas.backgroundImage._element) {
+      const imgEl = this.canvas.backgroundImage._element;
+      if (imgEl.src && imgEl.src.startsWith('data:image')) {
+        bgDataUrl = imgEl.src;
+      }
+    }
+    return {
+      objects: objectsJSON,
+      customBgDataUrl: bgDataUrl
+    };
+  }
+
+  /**
+   * Restores saved objects and modified background onto the canvas
+   */
+  async loadPageAnnotations(pageState) {
+    if (!pageState) {
+      this.clearAnnotations();
+      return;
+    }
+
+    // 1. If background was modified (e.g. text erased in background image), restore modified background
+    if (pageState.customBgDataUrl) {
+      const renderW = this.canvas.getWidth();
+      const renderH = this.canvas.getHeight();
+      await this.setPageBackground(pageState.customBgDataUrl, renderW, renderH);
+    }
+
+    // 2. Clear previous canvas objects before loading saved annotations
+    this.clearAnnotations();
+
+    // 3. Re-enliven saved objects
+    const objs = Array.isArray(pageState) ? pageState : pageState.objects;
+    if (objs && objs.length > 0) {
+      return new Promise((resolve) => {
+        fabric.util.enlivenObjects(objs, (enlivenedObjects) => {
+          enlivenedObjects.forEach((obj) => {
+            this.canvas.add(obj);
+          });
+          this.canvas.renderAll();
+          resolve();
+        });
+      });
+    }
+  }
+
+  /**
+   * Clears all annotation objects from canvas while keeping the background image intact
+   */
+  clearAnnotations() {
+    const currentObjs = this.canvas.getObjects().slice();
+    currentObjs.forEach(obj => this.canvas.remove(obj));
+    this.canvas.renderAll();
+  }
+
   // ==================== SELECTION & INSPECTOR ====================
 
   handleSelection(e) {

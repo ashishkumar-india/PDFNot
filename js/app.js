@@ -119,19 +119,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       this.showLoader(`Rendering Page ${pageIndex + 1}...`);
 
       try {
-        const bgDataUrl = await pdfEngine.renderPageBackground(pageIndex);
-        
         const renderW = pageData.renderWidth || pageData.originalWidth || 794;
         const renderH = pageData.renderHeight || pageData.originalHeight || 1123;
 
+        // If page has a saved modified background (e.g. with erased text), use that; otherwise render fresh from PDF.js
+        let bgDataUrl = pageData.fabricJSON?.customBgDataUrl;
+        if (!bgDataUrl) {
+          bgDataUrl = await pdfEngine.renderPageBackground(pageIndex);
+        }
+        
         if (bgDataUrl) {
           await canvasManager.setPageBackground(bgDataUrl, renderW, renderH);
         } else {
-          // bgDataUrl null (e.g. image after rotation recomputation) — keep existing bg
           canvasManager.canvas.setWidth(renderW);
           canvasManager.canvas.setHeight(renderH);
           canvasManager.canvas.calcOffset();
         }
+
         await canvasManager.loadPageAnnotations(pageData.fabricJSON);
         canvasManager.resetHistory();
 
@@ -1160,7 +1164,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const getPageComposite = async (pageIdx) => {
           const pData = pdfEngine.pagesData[pageIdx];
-          const bgUrl = await pdfEngine.renderPageBackground(pageIdx);
+          let bgUrl = pData.fabricJSON?.customBgDataUrl;
+          if (!bgUrl) {
+            bgUrl = await pdfEngine.renderPageBackground(pageIdx);
+          }
           
           const tempCanvasEl = document.createElement('canvas');
           tempCanvasEl.width = pData.renderWidth || pData.originalWidth || 794;
@@ -1169,20 +1176,33 @@ document.addEventListener('DOMContentLoaded', async () => {
           const tempFabric = new fabric.Canvas(tempCanvasEl);
           
           try {
-            await new Promise(res => {
-              fabric.Image.fromURL(bgUrl, (img) => {
-                img.set({
-                  originX: 'left', originY: 'top',
-                  scaleX: tempCanvasEl.width / img.width,
-                  scaleY: tempCanvasEl.height / img.height,
-                  selectable: false
-                });
-                tempFabric.setBackgroundImage(img, res);
-              }, { crossOrigin: 'anonymous' });
-            });
+            if (bgUrl) {
+              await new Promise(res => {
+                fabric.Image.fromURL(bgUrl, (img) => {
+                  img.set({
+                    originX: 'left', originY: 'top',
+                    scaleX: tempCanvasEl.width / img.width,
+                    scaleY: tempCanvasEl.height / img.height,
+                    selectable: false
+                  });
+                  tempFabric.setBackgroundImage(img, res);
+                }, { crossOrigin: 'anonymous' });
+              });
+            }
 
             if (pData.fabricJSON) {
-              await new Promise(res => tempFabric.loadFromJSON(pData.fabricJSON, res));
+              const objs = Array.isArray(pData.fabricJSON) ? pData.fabricJSON : pData.fabricJSON.objects;
+              if (objs && objs.length > 0) {
+                await new Promise(res => {
+                  fabric.util.enlivenObjects(objs, (enlivenedObjects) => {
+                    enlivenedObjects.forEach((obj) => {
+                      tempFabric.add(obj);
+                    });
+                    tempFabric.renderAll();
+                    res();
+                  });
+                });
+              }
             }
 
             const compositeUrl = tempFabric.toDataURL({ format: 'png', quality: 1.0, multiplier: 1.5 });
