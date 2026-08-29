@@ -135,33 +135,68 @@ class BackgroundRemover {
   }
 
   /**
-   * Luminance based background removal (ideal for handwritten signatures / line drawings on paper)
+   * Luminance based background removal with smooth Hermite anti-aliased edge falloff
+   * (Produces natural, ultra-smooth handwritten signatures with zero pixelated/sharp/jagged edges)
    */
-  static async removeLuminanceBackground(img, tolerance = 30) {
+  static async removeLuminanceBackground(img, tolerance = 25) {
     const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     ctx.drawImage(img, 0, 0);
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
 
-    const threshold = 255 - (tolerance * 2.5);
+    // 1. Sample perimeter pixels to find the true background paper luminance
+    let borderLumSum = 0;
+    let borderCount = 0;
+    for (let x = 0; x < w; x += 4) {
+      const topIdx = x * 4;
+      const btmIdx = ((h - 1) * w + x) * 4;
+      borderLumSum += (0.299 * data[topIdx] + 0.587 * data[topIdx + 1] + 0.114 * data[topIdx + 2]);
+      borderLumSum += (0.299 * data[btmIdx] + 0.587 * data[btmIdx + 1] + 0.114 * data[btmIdx + 2]);
+      borderCount += 2;
+    }
+    for (let y = 0; y < h; y += 4) {
+      const leftIdx = (y * w) * 4;
+      const rightIdx = (y * w + (w - 1)) * 4;
+      borderLumSum += (0.299 * data[leftIdx] + 0.587 * data[leftIdx + 1] + 0.114 * data[leftIdx + 2]);
+      borderLumSum += (0.299 * data[rightIdx] + 0.587 * data[rightIdx + 1] + 0.114 * data[rightIdx + 2]);
+      borderCount += 2;
+    }
 
+    const paperLum = borderCount > 0 ? (borderLumSum / borderCount) : 240;
+    
+    // Dynamic soft thresholds based on paper brightness & tolerance
+    const upperCutoff = Math.min(255, paperLum - (tolerance * 0.35));
+    const lowerCutoff = Math.max(20, paperLum - (tolerance * 2.0) - 50);
+    const range = Math.max(upperCutoff - lowerCutoff, 10);
+
+    // 2. Soft-alpha extraction with smooth Hermite curve and edge de-haloing
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
-      // Perceived luminance
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
-      if (lum >= threshold) {
-        data[i + 3] = 0; // Transparent
+      if (lum >= upperCutoff) {
+        data[i + 3] = 0; // Clean transparent paper
+      } else if (lum <= lowerCutoff) {
+        data[i + 3] = 255; // Solid core ink
       } else {
-        // Boost contrast on dark strokes
-        const alpha = Math.min(255, (threshold - lum) * 2);
-        data[i + 3] = alpha;
+        // Smoothstep interpolation (Hermite curve: 3t^2 - 2t^3) for butter-smooth edges
+        const t = (upperCutoff - lum) / range;
+        const smoothAlpha = t * t * (3 - 2 * t);
+        data[i + 3] = Math.round(smoothAlpha * 255);
+
+        // De-halo: neutralize white paper light fringe so ink stroke is smooth without harsh pixels
+        const inkFactor = Math.min(1.0, smoothAlpha * 1.4);
+        data[i] = Math.round(r * inkFactor);
+        data[i + 1] = Math.round(g * inkFactor);
+        data[i + 2] = Math.round(b * inkFactor);
       }
     }
 

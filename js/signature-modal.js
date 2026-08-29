@@ -236,7 +236,7 @@ class SignatureModal {
         if (window.BackgroundRemover) {
           this.uploadedDataUrl = await BackgroundRemover.removeBackground(rawDataUrl, {
             mode: 'luminance',
-            tolerance: 35
+            tolerance: 25
           });
         } else {
           this.uploadedDataUrl = rawDataUrl;
