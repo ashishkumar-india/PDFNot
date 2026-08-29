@@ -108,6 +108,10 @@ class PDFTextEditor {
     if (!pageData) return;
 
     if (!this.pdfEngine.currentDoc || this.pdfEngine.currentDoc.type !== 'pdf' || !this.pdfEngine.currentDoc.pdfDocProxy) {
+      // Auto-run OCR text detection on Image documents (JPG / PNG / Scans)
+      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
+        this.runOCRTextDetection();
+      }
       return;
     }
 

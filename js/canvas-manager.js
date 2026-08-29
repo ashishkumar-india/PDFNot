@@ -313,12 +313,21 @@ class CanvasManager {
       fontFamily: fontFam,
       fontSize: fontSize,
       fill: fontColor,
-      textBackgroundColor: bgColor, // Covers background text cleanly
+      textBackgroundColor: 'transparent',
       cursorColor: '#3b82f6',
       editingBorderColor: '#3b82f6',
       lineHeight: 1.15,
       editable: true,
-      padding: 2
+      padding: 2,
+      hasControls: true,
+      hasBorders: true,
+      lockMovementX: false,
+      lockMovementY: false,
+      cornerColor: '#3b82f6',
+      cornerStrokeColor: '#ffffff',
+      borderColor: '#3b82f6',
+      cornerSize: 7,
+      transparentCorners: false
     });
 
     this.canvas.add(textObj);
