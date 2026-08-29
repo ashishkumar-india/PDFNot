@@ -64,22 +64,39 @@
   padding: 0;
 }
 
+html {
+  /* Prevent text size adjust on orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bg-app);
   color: var(--text-primary);
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent overscroll bounce on iOS */
+  overscroll-behavior: none;
 }
 
 button, input, select, textarea {
   font-family: inherit;
   color: inherit;
+}
+
+/* Touch-friendly: eliminate 300ms tap delay on all interactive elements */
+button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
+.thumb-item, .modal-tab, .dropdown-item, .shape-opt, .btn-sidebar-opt,
+.btn-icon, .btn-icon-xs, .btn-toggle {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Custom Scrollbars */
@@ -111,8 +128,14 @@ button, input, select, textarea {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
+  /* Safe area padding for notch phones */
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
   z-index: 50;
   position: relative;
+  /* GPU layer for blur performance */
+  will-change: transform;
+  flex-shrink: 0;
 }
 
 .header-left, .header-center, .header-right {
@@ -397,8 +420,11 @@ button, input, select, textarea {
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  width: 30px;
-  height: 30px;
+  /* Minimum 36px for touch, 30px visually */
+  min-width: 36px;
+  min-height: 36px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -409,6 +435,10 @@ button, input, select, textarea {
 .btn-icon:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
+}
+.btn-icon:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  transform: scale(0.94);
 }
 .btn-icon:disabled {
   opacity: 0.3;
@@ -520,6 +550,10 @@ button, input, select, textarea {
   flex-direction: column;
   z-index: 30;
   transition: transform var(--transition-normal), width var(--transition-normal);
+  /* GPU composite layer for smooth slide */
+  will-change: transform;
+  transform: translateZ(0);
+  flex-shrink: 0;
 }
 .pages-sidebar.collapsed {
   width: 0;
@@ -600,6 +634,9 @@ button, input, select, textarea {
   z-index: 40;
   backdrop-filter: var(--glass-blur);
   transition: left var(--transition-normal);
+  /* GPU layer for smooth slide/transform */
+  will-change: transform;
+  transform: translateZ(0);
 }
 .pages-sidebar.collapsed ~ .floating-toolbar {
   left: 16px;
@@ -618,8 +655,8 @@ button, input, select, textarea {
 }
 
 .tool-btn {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -631,10 +668,17 @@ button, input, select, textarea {
   cursor: pointer;
   position: relative;
   transition: all var(--transition-fast);
+  /* Minimum touch target */
+  min-width: 44px;
+  min-height: 44px;
 }
 .tool-btn:hover {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
+}
+.tool-btn:active {
+  background: var(--bg-surface-active);
+  transform: scale(0.93);
 }
 .tool-btn.active {
   background: var(--accent-primary) !important;
@@ -729,6 +773,10 @@ button, input, select, textarea {
   align-items: flex-start;
   padding: 30px 20px;
   cursor: default;
+  /* Prevent overscroll glow */
+  overscroll-behavior: contain;
+  /* Smooth scroll on iOS */
+  scroll-behavior: auto;
 }
 .canvas-workspace.hand-mode {
   cursor: grab;
@@ -803,31 +851,42 @@ button, input, select, textarea {
   display: none;
   align-items: center;
   gap: 2px;
-  z-index: 60;
+  /* On mobile, must be above the floating bottom toolbar (z-index 70) */
+  z-index: 75;
   transform: translate(-50%, -100%);
   margin-top: -12px;
   backdrop-filter: var(--glass-blur);
+  /* GPU layer */
+  will-change: transform;
 }
 .floating-context-bar.show {
   display: flex;
+  animation: fadeInDown 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .ctx-btn {
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+  /* Larger touch target: 36px */
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   transition: var(--transition-fast);
 }
 .ctx-btn:hover {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
+}
+.ctx-btn:active {
+  background: var(--bg-surface-active);
+  transform: scale(0.92);
 }
 
 /* ==========================================================================
@@ -841,6 +900,10 @@ button, input, select, textarea {
   flex-direction: column;
   z-index: 30;
   transition: transform var(--transition-normal), width var(--transition-normal);
+  /* GPU composite layer */
+  will-change: transform;
+  transform: translateZ(0);
+  flex-shrink: 0;
 }
 .inspector-sidebar.collapsed {
   width: 0;
@@ -1046,7 +1109,7 @@ label {
    RESPONSIVE DESIGN & MOBILE/TABLET ADAPTATIONS
    ========================================================================== */
 
-/* Mobile Backdrop Overlay (No Blur to keep document clear & visible) */
+/* Mobile Backdrop Overlay */
 .sidebar-backdrop {
   display: none;
   position: fixed;
@@ -1054,11 +1117,13 @@ label {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  z-index: 85;
+  z-index: 90;
   transition: opacity var(--transition-normal);
+  /* GPU layer */
+  will-change: opacity;
 }
 .sidebar-backdrop.active {
   display: block;
@@ -1184,15 +1249,16 @@ label {
 /* 3. Mobile Phones (max-width: 768px) */
 @media (max-width: 768px) {
   :root {
-    --header-height: 48px;
+    --header-height: 50px;
   }
 
   .app-header {
-    padding: 0 6px;
-    gap: 4px;
+    padding: 0 8px;
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    gap: 6px;
     flex-wrap: nowrap;
-    overflow: hidden;
-    height: 48px;
+    height: 50px;
   }
 
   .logo-subtitle,
@@ -1206,10 +1272,11 @@ label {
   }
 
   .header-left {
-    gap: 4px;
+    gap: 6px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    min-width: 0;
   }
 
   .header-center {
@@ -1218,6 +1285,7 @@ label {
     display: flex;
     justify-content: center;
     align-items: center;
+    overflow: hidden;
   }
 
   .header-right {
@@ -1230,7 +1298,7 @@ label {
   .file-actions {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
   }
 
   .file-actions span,
@@ -1243,8 +1311,8 @@ label {
   .file-actions label,
   .file-actions .btn,
   .export-group .btn-success {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     display: inline-flex;
     align-items: center;
@@ -1258,26 +1326,37 @@ label {
     white-space: nowrap;
   }
   .app-logo {
-    gap: 4px;
+    gap: 6px;
   }
   .logo-icon {
-    width: 28px;
-    height: 28px;
-    font-size: 13px;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    flex-shrink: 0;
   }
 
   .page-navigation {
-    padding: 2px 4px;
+    padding: 3px 5px;
     gap: 2px;
   }
   .page-counter {
     font-size: 11px;
-    margin: 0 2px;
+    margin: 0 3px;
     white-space: nowrap;
   }
   .page-counter input {
-    width: 26px;
+    width: 28px;
     font-size: 11px;
+    /* Bigger tap target for input */
+    padding: 3px 0;
+  }
+  /* Larger nav buttons for touch */
+  .nav-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Floating Toolbar on Mobile - Horizontal Bottom Dock */
@@ -1285,21 +1364,22 @@ label {
   .pages-sidebar.collapsed ~ .floating-toolbar,
   .pages-sidebar ~ .floating-toolbar {
     position: fixed !important;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
     top: auto !important;
     left: 50% !important;
     right: auto !important;
-    transform: translateX(-50%) !important;
+    transform: translateX(-50%) translateZ(0) !important;
     flex-direction: row;
     padding: 6px 10px;
     border-radius: var(--radius-full);
-    background: rgba(15, 23, 42, 0.65) !important; /* Low opacity, translucent glass */
+    background: rgba(13, 19, 35, 0.82) !important;
     backdrop-filter: blur(20px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
     border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    /* Lighter shadow — repaint-friendly */
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255,255,255,0.06) inset;
     z-index: 70;
-    max-width: 95vw;
+    max-width: calc(100vw - 16px);
     width: auto;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1307,22 +1387,23 @@ label {
     -ms-overflow-style: none;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x;
-    gap: 4px;
+    gap: 2px;
+    will-change: transform;
   }
   .floating-toolbar::-webkit-scrollbar {
     display: none;
   }
   .floating-toolbar .tool-group {
     flex-direction: row;
-    gap: 4px;
+    gap: 2px;
     flex-shrink: 0;
   }
   .floating-toolbar .tool-separator {
     width: 1px;
     height: 26px;
-    margin: 0 5px;
+    margin: 0 4px;
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
   }
   .tool-btn {
     width: 44px;
@@ -1331,15 +1412,19 @@ label {
     flex-shrink: 0;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.05);
-    transition: all var(--transition-fast);
+    transition: background var(--transition-fast), transform 0.1s ease;
   }
   .tool-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.10);
+  }
+  .tool-btn:active {
+    background: rgba(255, 255, 255, 0.18);
+    transform: scale(0.92);
   }
   .tool-btn.active {
     background: var(--accent-primary) !important;
     color: #ffffff !important;
-    box-shadow: 0 0 16px var(--accent-primary-glow);
+    box-shadow: 0 0 14px var(--accent-primary-glow);
   }
   .tool-btn .tool-tip {
     display: none !important;
@@ -1352,34 +1437,85 @@ label {
     left: 50%;
     transform: translateX(-50%);
     flex-direction: column;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+    box-shadow: 0 -4px 36px rgba(0, 0, 0, 0.85);
     background: #0f172a;
     border: 1px solid rgba(255, 255, 255, 0.15);
+    min-width: 150px;
+  }
+  .shape-opt {
+    /* Larger tap targets for shapes */
+    padding: 11px 14px;
+    font-size: 13px;
   }
 
+  /* Floating context bar — must be above bottom toolbar */
+  .floating-context-bar {
+    z-index: 80;
+  }
+
+  /* Canvas workspace — bottom padding to clear the floating toolbar */
   .canvas-workspace {
-    padding: 8px 4px 78px 4px;
+    padding: 12px 4px calc(84px + env(safe-area-inset-bottom, 0px)) 4px;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y pinch-zoom;
   }
 
-  .canvas-sheet-wrapper {
-    max-width: 100%;
+  /* Thumbnails: show actions on tap (touch devices have no hover) */
+  .thumb-item .thumb-actions {
+    display: flex;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .thumb-item:active .thumb-actions,
+  .thumb-item.active .thumb-actions {
+    opacity: 1;
+  }
+
+  /* Range input: bigger thumb for touch */
+  .form-range {
+    height: 20px;
+    cursor: pointer;
+  }
+  .form-range::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
+  .form-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
   }
 
   /* Responsive Modals */
+  .modal-overlay {
+    padding: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    align-items: flex-end;
+  }
   .modal-card {
-    width: 95vw !important;
-    max-width: 95vw !important;
-    margin: auto;
-    max-height: 92vh !important;
-    border-radius: var(--radius-lg);
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0;
+    max-height: 94dvh !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
   .modal-body {
-    padding: 12px;
-    max-height: calc(92vh - 120px);
+    padding: 14px;
+    max-height: calc(94dvh - 130px);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
+  .modal-header {
+    padding: 14px 16px;
+  }
+  .modal-footer {
+    padding: 12px 14px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .modal-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .modal-tabs::-webkit-scrollbar { display: none; }
   .sig-pad-container {
     height: 180px !important;
     width: 100%;
@@ -1396,31 +1532,58 @@ label {
 /* 4. Extra Small Phones (max-width: 480px) */
 @media (max-width: 480px) {
   .app-header {
-    padding: 0 4px;
-    gap: 2px;
+    padding: 0 6px;
+    padding-left: max(6px, env(safe-area-inset-left));
+    padding-right: max(6px, env(safe-area-inset-right));
+    gap: 4px;
   }
   .app-logo .logo-text {
     display: none;
   }
   .page-navigation {
-    padding: 1px 3px;
+    padding: 2px 4px;
   }
   .page-counter {
     font-size: 10px;
   }
   .page-counter input {
-    width: 22px;
+    width: 24px;
     font-size: 10px;
   }
   .floating-toolbar {
-    padding: 6px 8px;
+    padding: 5px 8px;
     bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    max-width: 96vw;
+    max-width: calc(100vw - 12px);
   }
   .tool-btn {
     width: 42px;
     height: 42px;
     font-size: 17px;
-    border-radius: 11px;
+    border-radius: 10px;
+  }
+  /* Compact file actions */
+  .file-actions label,
+  .file-actions .btn {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* 5. Landscape mobile (short viewport) */
+@media (max-width: 768px) and (max-height: 500px) {
+  :root {
+    --header-height: 44px;
+  }
+  .floating-toolbar {
+    padding: 4px 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .tool-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 15px;
+  }
+  .canvas-workspace {
+    padding: 6px 4px calc(64px + env(safe-area-inset-bottom, 0px)) 4px;
   }
 }

@@ -667,6 +667,24 @@ kbd {
 }
 .toast-msg.toast-info {
   border-left: 4px solid var(--accent-primary);
+}
+
+/* On mobile: position toasts above the floating bottom toolbar */
+@media (max-width: 768px) {
+  .toast-container {
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    right: 12px;
+    left: 12px;
+    align-items: center;
+  }
+  .toast-msg {
+    width: 100%;
+    max-width: 100%;
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+}
+
 /* ==========================================================================
    PDF EXISTING TEXT EDITING OVERLAYS & BANNER
    ========================================================================== */
@@ -800,16 +818,23 @@ kbd {
   color: white;
   border: none;
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
+  /* Touch-friendly minimum size */
+  min-height: 36px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .btn-inline-apply:hover {
   background: var(--accent-primary-hover);
+}
+.btn-inline-apply:active {
+  transform: scale(0.96);
 }
 .btn-inline-close {
   background: transparent;
@@ -817,13 +842,51 @@ kbd {
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 6px 8px;
   border-radius: 4px;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
 }
 .btn-inline-close:hover {
   color: white;
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Mobile responsive inline editor */
+@media (max-width: 768px) {
+  .inline-text-editor-popup {
+    /* On mobile, center at bottom so keyboard doesn't cover it */
+    position: fixed !important;
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    right: 8px;
+    top: auto !important;
+    transform: none !important;
+    border-radius: var(--radius-md);
+    z-index: 1500;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .inline-edit-input {
+    min-width: 0;
+    flex: 1;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+}
 
+/* Stamp item - touch-friendly tap */
+.stamp-item:active {
+  transform: translateY(0) scale(0.97);
+  background: rgba(255, 255, 255, 0.12);
+}
 
+/* Animations */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 4px)); }
+  to   { opacity: 1; transform: translate(-50%, -100%); }
+}

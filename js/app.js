@@ -203,21 +203,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!container) return;
       container.innerHTML = '';
 
+      // Cancel any in-progress thumbnail renders from a previous call
+      if (this._thumbRenderAbort) this._thumbRenderAbort = true;
+      this._thumbRenderAbort = false;
+
       for (let i = 0; i < pdfEngine.pagesData.length; i++) {
         const pageData = pdfEngine.pagesData[i];
         const thumbItem = document.createElement('div');
         thumbItem.className = `thumb-item ${i === pdfEngine.currentPageIndex ? 'active' : ''}`;
         thumbItem.setAttribute('data-page-index', i);
 
-        thumbItem.innerHTML = `
-          <div class="thumb-preview-wrap" id="thumb-preview-${i}">
-            <div class="spinner" style="width:20px; height:20px;"></div>
-          </div>
-          <span class="thumb-label">Page ${i + 1}</span>
-          <div class="thumb-actions">
-            <button class="thumb-btn text-danger btn-del-thumb" title="Delete Page"><i class="fa-solid fa-trash"></i></button>
-          </div>
-        `;
+        // Safe DOM construction (no innerHTML for dynamic content)
+        const previewWrap = document.createElement('div');
+        previewWrap.className = 'thumb-preview-wrap';
+        previewWrap.id = `thumb-preview-${i}`;
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        spinner.style.cssText = 'width:20px;height:20px;';
+        previewWrap.appendChild(spinner);
+
+        const label = document.createElement('span');
+        label.className = 'thumb-label';
+        label.textContent = `Page ${i + 1}`;
+
+        const thumbActions = document.createElement('div');
+        thumbActions.className = 'thumb-actions';
+        const btnDel = document.createElement('button');
+        btnDel.className = 'thumb-btn text-danger btn-del-thumb';
+        btnDel.title = 'Delete Page';
+        btnDel.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        thumbActions.appendChild(btnDel);
+
+        thumbItem.appendChild(previewWrap);
+        thumbItem.appendChild(label);
+        thumbItem.appendChild(thumbActions);
 
         thumbItem.addEventListener('click', (e) => {
           if (e.target.closest('.thumb-actions')) return;
@@ -228,37 +247,48 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         });
 
-        const btnDel = thumbItem.querySelector('.btn-del-thumb');
-        if (btnDel) {
-          btnDel.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (confirm(`Delete Page ${i + 1}?`)) {
-              this.deletePage(i);
-            }
-          });
-        }
+        btnDel.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete Page ${i + 1}?`)) {
+            this.deletePage(i);
+          }
+        });
 
         container.appendChild(thumbItem);
 
-        // Stagger thumb renders to avoid simultaneous CPU-heavy decodes freezing the main thread
-        const renderDelay = i * 80;
+        // Stagger thumb renders with requestIdleCallback to avoid freezing main thread
+        // Current page loads first (delay=0), others are staggered by 100ms
+        const capturedI = i;
+        const capturedAbort = () => this._thumbRenderAbort;
+        const delay = i === pdfEngine.currentPageIndex ? 0 : Math.min(i * 100, 1200);
         setTimeout(() => {
-          pdfEngine.renderPageBackground(i)
-            .then(bgUrl => {
-              if (!bgUrl) return;
-              const previewWrap = document.getElementById(`thumb-preview-${i}`);
-              if (previewWrap) {
-                // Create a smaller thumb image (max 120px wide) for memory efficiency
-                const img = new Image();
-                img.src = bgUrl;
-                img.style.maxWidth = '100%';
-                img.alt = `Page ${i + 1}`;
-                previewWrap.innerHTML = '';
-                previewWrap.appendChild(img);
-              }
-            })
-            .catch(err => console.warn(`Thumbnail render failed for page ${i + 1}:`, err));
-        }, renderDelay);
+          if (capturedAbort()) return;
+          const scheduleRender = (cb) => {
+            if ('requestIdleCallback' in window) {
+              requestIdleCallback(cb, { timeout: 2000 });
+            } else {
+              requestAnimationFrame(cb);
+            }
+          };
+          scheduleRender(() => {
+            if (capturedAbort()) return;
+            pdfEngine.renderPageBackground(capturedI)
+              .then(bgUrl => {
+                if (!bgUrl || capturedAbort()) return;
+                const wrap = document.getElementById(`thumb-preview-${capturedI}`);
+                if (wrap) {
+                  const img = new Image();
+                  img.src = bgUrl;
+                  img.style.maxWidth = '100%';
+                  img.alt = `Page ${capturedI + 1}`;
+                  img.loading = 'lazy';
+                  wrap.innerHTML = '';
+                  wrap.appendChild(img);
+                }
+              })
+              .catch(err => console.warn(`Thumbnail render failed for page ${capturedI + 1}:`, err));
+          });
+        }, delay);
       }
     },
 

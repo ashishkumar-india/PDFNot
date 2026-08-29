@@ -114,9 +114,13 @@ class CanvasManager {
     this.canvas.on('mouse:up', (opt) => this.handleMouseUp(opt));
     this.canvas.on('mouse:wheel', (opt) => this.handleMouseWheel(opt));
 
-    // Selection Events for Inspector & Context Bar
-    this.canvas.on('selection:created', (e) => this.handleSelection(e));
-    this.canvas.on('selection:updated', (e) => this.handleSelection(e));
+    // Selection Events — debounced to avoid excessive inspector re-renders on rapid updates
+    const handleSelectionDebounced = (e) => {
+      cancelAnimationFrame(this._selectionRafId);
+      this._selectionRafId = requestAnimationFrame(() => this.handleSelection(e));
+    };
+    this.canvas.on('selection:created', handleSelectionDebounced);
+    this.canvas.on('selection:updated', handleSelectionDebounced);
     this.canvas.on('selection:cleared', () => this.handleSelectionCleared());
 
     // Hide context popup while actively typing/editing text so it never blocks the text line
@@ -128,10 +132,14 @@ class CanvasManager {
       if (e.target) this.positionFloatingContextBar(e.target);
     });
 
-    // Object Modification for Undo/Redo
-    this.canvas.on('object:added', () => this.recordHistory());
-    this.canvas.on('object:modified', () => this.recordHistory());
-    this.canvas.on('object:removed', () => this.recordHistory());
+    // Object Modification for Undo/Redo — debounced: rapid batch changes only record once
+    const debouncedRecord = () => {
+      clearTimeout(this._historyDebounceTimer);
+      this._historyDebounceTimer = setTimeout(() => this.recordHistory(), 50);
+    };
+    this.canvas.on('object:added', debouncedRecord);
+    this.canvas.on('object:modified', debouncedRecord);
+    this.canvas.on('object:removed', debouncedRecord);
 
     // Key events for spacebar pan & delete
     window.addEventListener('keydown', (e) => {
@@ -157,7 +165,13 @@ class CanvasManager {
         if (window.innerWidth <= 768) {
           this.zoomFit();
         }
-      }, 150);
+        // Reposition floating context bar on resize in case object is selected
+        const activeObj = this.canvas.getActiveObject();
+        if (activeObj) {
+          cancelAnimationFrame(this._selectionRafId);
+          this._selectionRafId = requestAnimationFrame(() => this.positionFloatingContextBar(activeObj));
+        }
+      }, 200);
     });
   }
 
@@ -207,13 +221,15 @@ class CanvasManager {
         const currDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
 
         const delta = currDistance - prevPinchDistance;
-        // Calm continuous scaling: 400px denominator gives natural, gentle iOS/Google Maps speed
-        const zoomFactor = 1 + (delta / 400);
+        // Calm continuous scaling: 550px denominator = natural gentle iOS/Google Maps speed
+        // (was 400 — was slightly too sensitive on small phones)
+        const zoomFactor = 1 + (delta / 550);
 
         let newZoom = this.zoomLevel * zoomFactor;
         newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
 
-        if (Math.abs(newZoom - this.zoomLevel) > 0.002) {
+        // Only apply if the change is meaningful (avoid micro-jitter)
+        if (Math.abs(newZoom - this.zoomLevel) > 0.003) {
           this.setZoom(newZoom);
         }
         prevPinchDistance = currDistance;
@@ -400,9 +416,13 @@ class CanvasManager {
       opt.e.preventDefault();
       opt.e.stopPropagation();
 
-      const delta = opt.e.deltaY;
-      let zoom = this.canvas.getZoom();
-      zoom *= 0.999 ** delta;
+      // Clamp raw delta to avoid jumpy zoom on high-resolution trackpads
+      // (delta can be 100+ per frame on some trackpads without clamping)
+      const rawDelta = opt.e.deltaY;
+      const clampedDelta = Math.max(-30, Math.min(30, rawDelta));
+
+      let zoom = this.zoomLevel;
+      zoom *= 0.999 ** clampedDelta;
       if (zoom > this.maxZoom) zoom = this.maxZoom;
       if (zoom < this.minZoom) zoom = this.minZoom;
 
@@ -1071,41 +1091,45 @@ class CanvasManager {
       return;
     }
 
-    const bound = obj.getBoundingRect();
-    const canvasWrap = document.getElementById('canvas-wrapper');
-    if (!canvasWrap) return;
-    const wrapRect = canvasWrap.getBoundingClientRect();
-    const workspaceEl = document.getElementById('canvas-workspace');
-    if (!workspaceEl) return;
-    const workspaceRect = workspaceEl.getBoundingClientRect();
+    // Use rAF to batch DOM reads/writes and avoid layout thrashing
+    cancelAnimationFrame(this._ctxBarRafId);
+    this._ctxBarRafId = requestAnimationFrame(() => {
+      const bound = obj.getBoundingRect();
+      const canvasWrap = document.getElementById('canvas-wrapper');
+      if (!canvasWrap) return;
+      const wrapRect = canvasWrap.getBoundingClientRect();
+      const workspaceEl = document.getElementById('canvas-workspace');
+      if (!workspaceEl) return;
+      const workspaceRect = workspaceEl.getBoundingClientRect();
 
-    const zoom = this.zoomLevel || 1.0;
-    const left = (wrapRect.left - workspaceRect.left) + ((bound.left + bound.width / 2) * zoom);
-    
-    // Position smartly: if object is near top of canvas, place toolbar BELOW the object so it never overlaps the text!
-    let top;
-    if ((bound.top * zoom) < 60) {
-      top = (wrapRect.top - workspaceRect.top) + ((bound.top + bound.height) * zoom) + 14;
-      ctxBar.style.transform = 'translate(-50%, 0)';
-      ctxBar.style.marginTop = '0px';
-    } else {
-      top = (wrapRect.top - workspaceRect.top) + (bound.top * zoom) - 12;
-      ctxBar.style.transform = 'translate(-50%, -100%)';
-      ctxBar.style.marginTop = '0px';
-    }
+      const zoom = this.zoomLevel || 1.0;
+      const left = (wrapRect.left - workspaceRect.left) + ((bound.left + bound.width / 2) * zoom);
+      
+      // Position smartly: if object is near top of canvas, place toolbar BELOW the object so it never overlaps the text!
+      let top;
+      if ((bound.top * zoom) < 60) {
+        top = (wrapRect.top - workspaceRect.top) + ((bound.top + bound.height) * zoom) + 14;
+        ctxBar.style.transform = 'translate(-50%, 0)';
+        ctxBar.style.marginTop = '0px';
+      } else {
+        top = (wrapRect.top - workspaceRect.top) + (bound.top * zoom) - 12;
+        ctxBar.style.transform = 'translate(-50%, -100%)';
+        ctxBar.style.marginTop = '0px';
+      }
 
-    const btnReplaceImg = document.getElementById('ctx-replace-image');
-    if (btnReplaceImg) {
-      btnReplaceImg.style.display = (obj.type === 'image') ? 'flex' : 'none';
-    }
-    const btnRemoveBg = document.getElementById('ctx-remove-bg');
-    if (btnRemoveBg) {
-      btnRemoveBg.style.display = (obj.type === 'image') ? 'flex' : 'none';
-    }
+      const btnReplaceImg = document.getElementById('ctx-replace-image');
+      if (btnReplaceImg) {
+        btnReplaceImg.style.display = (obj.type === 'image') ? 'flex' : 'none';
+      }
+      const btnRemoveBg = document.getElementById('ctx-remove-bg');
+      if (btnRemoveBg) {
+        btnRemoveBg.style.display = (obj.type === 'image') ? 'flex' : 'none';
+      }
 
-    ctxBar.style.left = `${left}px`;
-    ctxBar.style.top = `${top}px`;
-    ctxBar.classList.add('show');
+      ctxBar.style.left = `${left}px`;
+      ctxBar.style.top = `${top}px`;
+      ctxBar.classList.add('show');
+    });
   }
 
   /**
