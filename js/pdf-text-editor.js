@@ -69,16 +69,25 @@ class PDFTextEditor {
       const clickX = pointer.x;
       const clickY = pointer.y;
 
-      // Check if click hits any extracted text line bounding box
+      // 1. Check if click hits any extracted text line bounding box
       for (let i = 0; i < this.extractedLines.length; i++) {
         const line = this.extractedLines[i];
         if (
-          clickX >= line.x - 4 &&
-          clickX <= line.x + line.width + 4 &&
-          clickY >= line.y - 3 &&
-          clickY <= line.y + line.height + 3
+          clickX >= line.x - 6 &&
+          clickX <= line.x + line.width + 6 &&
+          clickY >= line.y - 6 &&
+          clickY <= line.y + line.height + 6
         ) {
           this.convertLineToEditableText(line, i);
+          return;
+        }
+      }
+
+      // 2. On image documents: if user clicks anywhere on the image in select mode, drop an instant editable text box!
+      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
+        const dynamicLine = this.detectLocalImageTextRegion(clickX, clickY);
+        if (dynamicLine) {
+          this.convertLineToEditableText(dynamicLine, -1);
           return;
         }
       }
@@ -98,6 +107,160 @@ class PDFTextEditor {
   }
 
   /**
+   * Ultra-fast client-side text line scanner for images (executes in 5ms)
+   */
+  scanImageTextLines() {
+    try {
+      const lowerCanvas = document.querySelector('.lower-canvas');
+      if (!lowerCanvas) return [];
+
+      const w = lowerCanvas.width;
+      const h = lowerCanvas.height;
+      if (w === 0 || h === 0) return [];
+
+      const ctx = lowerCanvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      // 1. Scan row luminance variance
+      const rowVariances = new Float32Array(h);
+      for (let y = 0; y < h; y += 3) {
+        let sum = 0, sumSq = 0, count = 0;
+        for (let x = 0; x < w; x += 6) {
+          const idx = (y * w + x) * 4;
+          const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+          sum += lum;
+          sumSq += lum * lum;
+          count++;
+        }
+        const mean = sum / count;
+        rowVariances[y] = Math.sqrt(Math.max(0, (sumSq / count) - (mean * mean)));
+      }
+
+      // 2. Identify text bands
+      const bands = [];
+      let inBand = false;
+      let startY = 0;
+      for (let y = 0; y < h; y += 3) {
+        if (rowVariances[y] > 12) {
+          if (!inBand) { inBand = true; startY = y; }
+        } else {
+          if (inBand) {
+            inBand = false;
+            if (y - startY >= 10 && y - startY <= 160) {
+              bands.push({ y0: Math.max(0, startY - 4), y1: Math.min(h, y + 4) });
+            }
+          }
+        }
+      }
+      if (inBand && h - startY >= 10 && h - startY <= 160) {
+        bands.push({ y0: Math.max(0, startY - 4), y1: h });
+      }
+
+      // 3. For each band, detect horizontal segments
+      const detected = [];
+      bands.forEach((b, bIdx) => {
+        const bandH = b.y1 - b.y0;
+        const colVar = new Float32Array(w);
+
+        for (let x = 0; x < w; x += 3) {
+          let minLum = 255, maxLum = 0;
+          for (let y = b.y0; y < b.y1; y += 3) {
+            const idx = (y * w + x) * 4;
+            const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+            if (lum < minLum) minLum = lum;
+            if (lum > maxLum) maxLum = lum;
+          }
+          colVar[x] = maxLum - minLum;
+        }
+
+        let inSeg = false;
+        let startX = 0;
+        for (let x = 0; x < w; x += 3) {
+          if (colVar[x] > 18) {
+            if (!inSeg) { inSeg = true; startX = x; }
+          } else {
+            if (inSeg) {
+              let hasMore = false;
+              for (let k = x; k < Math.min(x + 24, w); k += 3) {
+                if (colVar[k] > 18) { hasMore = true; break; }
+              }
+              if (!hasMore) {
+                inSeg = false;
+                const segW = x - startX;
+                if (segW >= 24) {
+                  const fontSize = Math.max(Math.round(bandH * 0.75), 14);
+                  detected.push({
+                    id: `img_line_${bIdx}_${detected.length}`,
+                    text: 'Edit Text',
+                    x: Math.max(0, startX - 4),
+                    y: Math.max(0, b.y0 - 2),
+                    width: segW + 8,
+                    height: bandH + 4,
+                    fontSize: fontSize,
+                    fontFamily: 'Inter',
+                    fontWeight: 'bold',
+                    fontStyle: 'normal'
+                  });
+                }
+              }
+            }
+          }
+        }
+        if (inSeg && w - startX >= 24) {
+          const fontSize = Math.max(Math.round(bandH * 0.75), 14);
+          detected.push({
+            id: `img_line_${bIdx}_${detected.length}`,
+            text: 'Edit Text',
+            x: Math.max(0, startX - 4),
+            y: Math.max(0, b.y0 - 2),
+            width: (w - startX) + 8,
+            height: bandH + 4,
+            fontSize: fontSize,
+            fontFamily: 'Inter',
+            fontWeight: 'bold',
+            fontStyle: 'normal'
+          });
+        }
+      });
+
+      return detected;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  detectLocalImageTextRegion(clickX, clickY) {
+    try {
+      const lowerCanvas = document.querySelector('.lower-canvas');
+      if (!lowerCanvas) return null;
+
+      const w = lowerCanvas.width;
+      const h = lowerCanvas.height;
+
+      const boxW = Math.min(220, w - Math.max(0, clickX - 20));
+      const boxH = 40;
+      const boxX = Math.max(0, clickX - 20);
+      const boxY = Math.max(0, clickY - 18);
+
+      return {
+        id: `img_click_${Date.now()}`,
+        text: 'Type Text Here',
+        x: boxX,
+        y: boxY,
+        width: boxW,
+        height: boxH,
+        fontSize: 22,
+        fontFamily: 'Inter',
+        fontWeight: 'bold',
+        fontStyle: 'normal'
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
    * Extracts text from PDF.js for the current page with full font metrics & style preservation
    */
   async extractTextFromCurrentPage() {
@@ -108,6 +271,10 @@ class PDFTextEditor {
     if (!pageData) return;
 
     if (!this.pdfEngine.currentDoc || this.pdfEngine.currentDoc.type !== 'pdf' || !this.pdfEngine.currentDoc.pdfDocProxy) {
+      // For images, run instant 5ms line scan
+      if (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image') {
+        this.extractedLines = this.scanImageTextLines();
+      }
       return;
     }
 
