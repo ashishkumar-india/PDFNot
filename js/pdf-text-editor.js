@@ -394,10 +394,23 @@ class PDFTextEditor {
         });
       });
 
-      // Sort in strict 2D reading order: top-to-bottom lines (y), then left-to-right words (x)
-      parsed.sort((a, b) => {
+      // 1. Deduplicate overlapping duplicate render passes (e.g. bold simulation, shadow/OCR overlay)
+      const deduplicated = [];
+      parsed.forEach(item => {
+        const isDuplicate = deduplicated.some(existing => 
+          Math.abs(existing.x - item.x) <= 2 &&
+          Math.abs(existing.y - item.y) <= 2 &&
+          (existing.text === item.text || existing.text.trim() === item.text.trim())
+        );
+        if (!isDuplicate) {
+          deduplicated.push(item);
+        }
+      });
+
+      // 2. Sort in strict 2D reading order: top-to-bottom lines (y), then left-to-right words (x)
+      deduplicated.sort((a, b) => {
         const yDiff = a.y - b.y;
-        if (Math.abs(yDiff) > 6) {
+        if (Math.abs(yDiff) > 3) {
           return yDiff;
         }
         return a.x - b.x;
@@ -406,43 +419,46 @@ class PDFTextEditor {
       const lines = [];
       let currentLine = null;
 
-      parsed.forEach(item => {
+      deduplicated.forEach(item => {
         if (!currentLine) {
           currentLine = { ...item };
           return;
         }
 
-        const isSameY = Math.abs(item.y - currentLine.y) <= 8;
+        const maxAllowedYDiff = Math.min(Math.max(item.fontSize * 0.35, 2.5), 4.5);
+        const isSameY = Math.abs(item.y - currentLine.y) <= maxAllowedYDiff;
         const gap = item.x - (currentLine.x + currentLine.width);
-        // Generously merge adjacent words on the same line into full coherent lines
-        const isCloseX = gap >= -8 && gap <= Math.max(item.fontSize * 3.5, 45);
-        const isSameStyle = (item.fontFamily === currentLine.fontFamily && item.fontWeight === currentLine.fontWeight);
+        const maxAllowedGap = Math.max(item.fontSize * 1.6, 22);
+        const isCloseX = gap >= -2 && gap <= maxAllowedGap;
 
-        if (isSameY && isCloseX && isSameStyle) {
+        if (isSameY && isCloseX) {
           // Check if item starts with a Devanagari combining mark / vowel sign (matra)
           const isDevanagariMatra = /^[\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963]/.test(item.text);
           const hasHindi = /[\u0900-\u097F]/.test(currentLine.text + item.text);
 
-          // Only insert space between distinct words (minimum 28% of font size), NEVER before matras
-          const minWordSpace = hasHindi ? Math.max(item.fontSize * 0.28, 4.5) : Math.max(item.fontSize * 0.20, 2.5);
+          const minWordSpace = hasHindi ? Math.max(item.fontSize * 0.25, 3.5) : Math.max(item.fontSize * 0.20, 2.5);
           const needsSpace = !isDevanagariMatra && !currentLine.text.endsWith(' ') && !item.text.startsWith(' ') && (gap >= minWordSpace);
 
           currentLine.text += (needsSpace ? ' ' : '') + item.text;
           currentLine.width = (item.x + item.width) - currentLine.x;
           currentLine.height = Math.max(currentLine.height, item.height);
+          if (/[\u0900-\u097F]/.test(item.text) && !/[\u0900-\u097F]/.test(currentLine.text)) {
+            currentLine.fontFamily = item.fontFamily;
+          }
         } else {
-          // Normalize spaces and fix any broken Devanagari matra gaps (e.g. 'क ा' -> 'का')
           currentLine.text = currentLine.text
             .replace(/\s+/g, ' ')
             .replace(/ ([\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963])/g, '$1')
             .trim();
 
-          lines.push(currentLine);
+          if (currentLine.text.length > 0) {
+            lines.push(currentLine);
+          }
           currentLine = { ...item };
         }
       });
 
-      if (currentLine) {
+      if (currentLine && currentLine.text.trim().length > 0) {
         currentLine.text = currentLine.text
           .replace(/\s+/g, ' ')
           .replace(/ ([\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963])/g, '$1')
@@ -1547,11 +1563,14 @@ class PDFTextEditor {
       }
 
       // Erase text area on offscreen background canvas
-      offCtx.fillStyle = bgColor;
-      const erasePadX = isImageDoc ? 14 : 6;
-      const erasePadY = isImageDoc ? 8 : 4;
-      const eraseWidth = Math.max(iW + (erasePadX * 2), isImageDoc ? 220 : iW + 12);
-      const eraseHeight = Math.max(Math.round((line.fontSize * (isImageDoc ? 1.5 : 1.35)) / scaleY), isImageDoc ? 38 : 16);
+      offCtx.fillStyle = '#ffffff';
+      if (dominantBg.r !== 255 || dominantBg.g !== 255 || dominantBg.b !== 255) {
+        offCtx.fillStyle = bgColor;
+      }
+      const erasePadX = isImageDoc ? 10 : 2;
+      const erasePadY = isImageDoc ? 6 : 1;
+      const eraseWidth = Math.min(iW + (erasePadX * 2), imgW - Math.max(iX - erasePadX, 0));
+      const eraseHeight = Math.min(Math.round((line.fontSize * (isImageDoc ? 1.4 : 1.15)) / scaleY), imgH - Math.max(iY - erasePadY, 0));
 
       offCtx.fillRect(
         Math.max(iX - erasePadX, 0),

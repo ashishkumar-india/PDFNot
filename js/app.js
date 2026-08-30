@@ -106,6 +106,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
 
+        // Dismiss any previous session restore banner
+        const banner = document.getElementById('session-restore-banner');
+        if (banner) banner.style.display = 'none';
+
         await this.renderCurrentPage();
         this.renderThumbnails();
         canvasManager.showToast(`${filename} loaded successfully!`, 'success');

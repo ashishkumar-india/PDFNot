@@ -616,19 +616,50 @@ class PDFEngine {
             const renderW = Math.max(maxX - minX, 10);
             const renderH = Math.max(maxY - minY, 10);
 
-            // Ignore 1px spacers / tracking pixels
-            if (renderW > 8 && renderH > 8) {
-              extracted.push({
-                id: 'pdf_img_' + Date.now() + '_' + extracted.length,
-                dataUrl: dataUrl,
-                left: Math.round(minX),
-                top: Math.round(minY),
-                width: Math.round(renderW),
-                height: Math.round(renderH),
-                naturalWidth: iW,
-                naturalHeight: iH
-              });
+            // 1. Ignore full-page background images (already present in canvas.backgroundImage)
+            const vpW = viewport.width;
+            const vpH = viewport.height;
+            if (renderW >= vpW * 0.88 && renderH >= vpH * 0.88) {
+              continue;
             }
+
+            // 2. Ignore 1px spacers / tracking pixels
+            if (renderW <= 8 || renderH <= 8) {
+              continue;
+            }
+
+            // 3. Filter out 100% transparent or blank solid 1-color placeholder boxes
+            const sampleW = Math.min(iW, 64);
+            const sampleH = Math.min(iH, 64);
+            const sampleData = ictx.getImageData(0, 0, sampleW, sampleH).data;
+            let nonTransparentCount = 0;
+            let minLum = 255, maxLum = 0;
+
+            for (let p = 0; p < sampleData.length; p += 4) {
+              const a = sampleData[p + 3];
+              if (a > 15) {
+                nonTransparentCount++;
+                const lum = (sampleData[p] + sampleData[p + 1] + sampleData[p + 2]) / 3;
+                if (lum < minLum) minLum = lum;
+                if (lum > maxLum) maxLum = lum;
+              }
+            }
+
+            // If 100% transparent or completely solid uniform color (dummy placeholder), skip!
+            if (nonTransparentCount === 0 || (maxLum - minLum < 6 && nonTransparentCount === (sampleW * sampleH))) {
+              continue;
+            }
+
+            extracted.push({
+              id: 'pdf_img_' + Date.now() + '_' + extracted.length,
+              dataUrl: dataUrl,
+              left: Math.round(minX),
+              top: Math.round(minY),
+              width: Math.round(renderW),
+              height: Math.round(renderH),
+              naturalWidth: iW,
+              naturalHeight: iH
+            });
           } catch (imgErr) {
             console.warn("Could not extract embedded image:", imgErr);
           }
