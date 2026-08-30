@@ -358,6 +358,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (oldBg) {
           pData.fabricJSON.customBgDataUrl = await pdfEngine._rotateImageDataUrl(oldBg, deg);
+          
+          // Ensure we swap the dimensions so the canvas resizes correctly for the rotated custom background
+          const cw = pData.renderWidth || pData.originalWidth || 794;
+          const ch = pData.renderHeight || pData.originalHeight || 1123;
+          pData.renderWidth = ch;
+          pData.renderHeight = cw;
+          pData.originalWidth = ch;
+          pData.originalHeight = cw;
         }
 
         if (pData.fabricJSON.objects && pData.fabricJSON.objects.length > 0) {
