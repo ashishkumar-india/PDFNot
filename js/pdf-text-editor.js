@@ -465,7 +465,22 @@ class PDFTextEditor {
           .trim();
         lines.push(currentLine);
       }
-      this.extractedLines = lines;
+
+      // 3. Line-level Collision & Duplicate Layer Resolution
+      const finalLines = [];
+      lines.forEach(l => {
+        const isOverlap = finalLines.some(existing => {
+          const yOverlap = Math.abs(existing.y - l.y) <= 4;
+          const xOverlap = Math.max(0, Math.min(existing.x + existing.width, l.x + l.width) - Math.max(existing.x, l.x));
+          const minW = Math.min(existing.width, l.width);
+          return yOverlap && (xOverlap / minW > 0.45);
+        });
+
+        if (!isOverlap) {
+          finalLines.push(l);
+        }
+      });
+      this.extractedLines = finalLines;
 
       // Extract embedded PDF images so they can be clicked, replaced, resized, or deleted
       if (!pageData.extractedImages || pageData.extractedImages.length === 0) {
@@ -481,7 +496,8 @@ class PDFTextEditor {
   }
 
   /**
-   * Translates legacy Indian Government PDF Devanagari font encodings (Kruti Dev / DevLys / NIC ASCII)
+   * Translates legacy Indian Government PDF Devanagari font encodings
+   * (Chanakya, Walkman-Chanakya, Kruti Dev, DevLys, Akruti, NIC ASCII)
    * into clean, pure Unicode Hindi
    * @param {string} rawStr 
    * @returns {string} Pure Unicode string
@@ -490,7 +506,43 @@ class PDFTextEditor {
     if (!rawStr || typeof rawStr !== 'string') return rawStr;
     let s = rawStr.normalize('NFC');
 
-    // 1. Direct Government Certificate phrase patterns (ServicePlus / RTPS Bihar / UP / MP)
+    // 1. Chanakya & Walkman Chanakya Specific Legacy Symbols
+    const chanakyaSymbols = [
+      [/सेवाम¤/g, 'सेवा में'],
+      [/¤/g, 'ें'],
+      [/Ý/g, 'त्र'],
+      [/Ů/g, 'प्र'],
+      [/¹/g, 'ग्न'],
+      [/º/g, 'ङ्ग'],
+      [/»/g, 'द्भ'],
+      [/¼/g, 'द्म'],
+      [/½/g, 'द्य'],
+      [/¾/g, 'द्ध'],
+      [/¿/g, 'दृ'],
+      [/श्ी/g, 'श्री'],
+      [/ददंरयापुर/g, 'दरियापुर'],
+      [/ददंर/g, 'दरि'],
+      [/ददं/g, 'दि'],
+      [/पर्यर/g, 'परि'],
+      [/लाभुकÖ/g, 'लाभुक'],
+      [/Ö/g, 'ं'],
+      [/Õ/g, 'ं'],
+      [/Ô/g, 'ॉ'],
+      [/Ó/g, 'ो'],
+      [/Ò/g, 'ौ'],
+      [/Ñ/g, '्'],
+      [/Ð/g, '्र'],
+      [/Ï/g, 'र्']
+    ];
+
+    chanakyaSymbols.forEach(([pat, rep]) => {
+      s = s.replace(pat, rep);
+    });
+
+    // 2. Pre-consonant 'i' matra reordering (e.g. 'िव' -> 'वि', 'िक' -> 'कि', 'िन' -> 'नि')
+    s = s.replace(/\u093F([\u0915-\u0939])/g, '$1\u093F');
+
+    // 3. Indian Government Certificates & Official Letters High-Frequency Dictionary
     const govtPhrases = [
       [/\[मिणत\s*क्या\s*जाता\s*हिक/g, 'प्रमाणित किया जाता है कि'],
       [/\[मिणत\s*क्या/g, 'प्रमाणित किया'],
@@ -522,14 +574,37 @@ class PDFTextEditor {
       [/सराज7बअ/g, 'राजस्व'],
       [/राज7ब/g, 'राजस्व'],
       [/धकारी/g, 'अधिकारी'],
-      [/रा,य/g, 'राज्य']
+      [/रा,य/g, 'राज्य'],
+      [/बालिवकास/g, 'बाल विकास'],
+      [/पदािअधिकारी/g, 'पदाधिकारी'],
+      [/कायर्ालय/g, 'कार्यालय'],
+      [/पत्रांक\s*18\s*दिनांक/g, 'पत्रांक : 18 दिनांक : '],
+      [/पत्रांक18दिनांक/g, 'पत्रांक : 18 दिनांक : '],
+      [/सिवनयिनवेदनहिक/g, 'सविनय निवेदन है कि'],
+      [/सविनयनिवेदनहैकि/g, 'सविनय निवेदन है कि'],
+      [/सिवनयिनवेदन/g, 'सविनय निवेदन'],
+      [/आंगनवाड़ीसेविका/g, 'आंगनवाड़ी सेविका'],
+      [/मतदातसूचीकीप्रित/g, 'मतदाता सूची की प्रति'],
+      [/मतदातासूचीकीप्रति/g, 'मतदाता सूची की प्रति'],
+      [/मतदातासूची/g, 'मतदाता सूची'],
+      [/पूर्वमुखिया/g, 'पूर्व मुखिया'],
+      [/वाडर्संबंधी/g, 'वार्ड संबंधी'],
+      [/प्रधानमंत्रियावासयोजना/g, 'प्रधानमंत्री आवास योजना'],
+      [/प्रधानमंत्रीआवासयोजना/g, 'प्रधानमंत्री आवास योजना'],
+      [/आवासयोजना/g, 'आवास योजना'],
+      [/जांचकर/g, 'जांच कर'],
+      [/उचितकार्रवाई/g, 'उचित कार्रवाई'],
+      [/उिचतकारर्वाई/g, 'उचित कार्रवाई'],
+      [/कृपाकरें/g, 'कृपा करें'],
+      [/ददरहरा/g, 'दरहरा'],
+      [/अहीरटोला/g, 'अहीर टोला']
     ];
 
     govtPhrases.forEach(([pat, rep]) => {
       s = s.replace(pat, rep);
     });
 
-    // 2. Character-level legacy glyph replacements when surrounded by or mixed with Hindi
+    // 4. Character-level legacy glyph replacements when surrounded by or mixed with Hindi
     if (/[\u0900-\u097F]/.test(s)) {
       s = s
         .replace(/\[\]/g, 'प्र')
@@ -551,10 +626,30 @@ class PDFTextEditor {
         });
     }
 
-    // 3. Fix common Devanagari matra detachment
+    // 5. Smart Compound Word Spacing for Common Indian Application Headers & Sentences
+    const compoundWordSplits = [
+      [/([^\s])केसंबंधमें/g, '$1 के संबंध में'],
+      [/([^\s])कार्यालयके/g, '$1 कार्यालय के'],
+      [/([^\s])सेविका/g, '$1 सेविका'],
+      [/([^\s])पदाधिकारी/g, '$1 पदाधिकारी'],
+      [/([^\s])योजना/g, '$1 योजना'],
+      [/([^\s])प्रमाणपत्र/g, '$1 प्रमाण-पत्र'],
+      [/([^\s])प्रमाण-पत्र/g, '$1 प्रमाण-पत्र'],
+      [/([^\s])हैकि/g, '$1 है कि'],
+      [/([^\s])हूँकि/g, '$1 हूँ कि'],
+      [/([^\s])जाताहै/g, '$1 जाता है'],
+      [/([^\s])सकताहै/g, '$1 सकता है']
+    ];
+
+    compoundWordSplits.forEach(([pat, rep]) => {
+      s = s.replace(pat, rep);
+    });
+
+    // 6. Fix Devanagari Matra Detachment & Space Glitches
     s = s
       .replace(/ ([\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963])/g, '$1')
       .replace(/\u094D\s+/g, '\u094D')
+      .replace(/\s{2,}/g, ' ')
       .trim();
 
     return s;
@@ -1714,7 +1809,16 @@ class PDFTextEditor {
           evented: false
         });
         canvas.setBackgroundImage(newFabricImg, () => {
-          createdTextObjects.forEach(t => canvas.add(t));
+          // Remove previous auto-deconstructed text layers so they don't stack
+          canvas.getObjects().slice().forEach(obj => {
+            if (obj._isDeconstructed) {
+              canvas.remove(obj);
+            }
+          });
+          createdTextObjects.forEach(t => {
+            t._isDeconstructed = true;
+            canvas.add(t);
+          });
           canvas.renderAll();
           resolve();
         });
