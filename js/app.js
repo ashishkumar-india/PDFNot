@@ -1553,11 +1553,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     bindGlobalKeyboardShortcuts() {
       window.addEventListener('keydown', (e) => {
-        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || canvasManager.isEditingText()) {
+        const isCtrl = e.ctrlKey || e.metaKey;
+
+        // Select All: Ctrl+A / Cmd+A
+        if (isCtrl && e.key.toLowerCase() === 'a') {
+          // If typing inside standard HTML input/textarea, allow normal browser selection
+          if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+            return;
+          }
+
+          e.preventDefault();
+
+          // If typing inside a Fabric text block, select all text
+          if (canvasManager.isEditingText()) {
+            const activeObj = canvasManager.canvas.getActiveObject();
+            if (activeObj && activeObj.selectAll) {
+              activeObj.selectAll();
+              canvasManager.canvas.requestRenderAll();
+            }
+            return;
+          }
+
+          // Otherwise on canvas: select all objects on page
+          canvasManager.selectAllObjects();
           return;
         }
 
-        const isCtrl = e.ctrlKey || e.metaKey;
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || canvasManager.isEditingText()) {
+          return;
+        }
 
         // Undo: Ctrl+Z
         if (isCtrl && e.key.toLowerCase() === 'z' && !e.shiftKey) {

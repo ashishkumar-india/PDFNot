@@ -508,6 +508,23 @@ class CanvasManager {
   }
 
   /**
+   * Selects all selectable objects on the canvas (Ctrl+A)
+   */
+  selectAllObjects() {
+    const objs = this.canvas.getObjects().filter(o => o.selectable !== false && o.evented !== false);
+    if (objs.length === 0) return;
+
+    if (objs.length === 1) {
+      this.canvas.setActiveObject(objs[0]);
+    } else {
+      this.canvas.discardActiveObject();
+      const sel = new fabric.ActiveSelection(objs, { canvas: this.canvas });
+      this.canvas.setActiveObject(sel);
+    }
+    this.canvas.requestRenderAll();
+  }
+
+  /**
    * Sets active tool mode and adjusts canvas behavior
    * @param {string} toolName 
    * @param {object} options 
