@@ -662,6 +662,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           this.activateTool('shapes', { shapeType });
           canvasManager.showToast(`Click canvas to place ${shapeType}`, 'info');
         });
+        opt.addEventListener('dragstart', (e) => {
+          const shapeType = opt.getAttribute('data-shape');
+          e.dataTransfer.setData('application/x-shape', shapeType);
+          e.dataTransfer.effectAllowed = 'copy';
+          document.getElementById('shapes-flyout-menu')?.classList.remove('show');
+        });
       });
     },
 
@@ -1446,6 +1452,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       dropArea.addEventListener('drop', (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // 1. Handle dragged shape from toolbar
+        const shapeType = e.dataTransfer.getData('application/x-shape');
+        if (shapeType) {
+          if (!pdfEngine.currentDoc) {
+            canvasManager.showToast("Load a document first", "error");
+            return;
+          }
+          const canvasPointer = canvasManager.canvas.getPointer(e);
+          this.activateTool('shapes', { shapeType });
+          canvasManager.activeShapeType = shapeType;
+          canvasManager.addShapeAtPosition(shapeType, canvasPointer.x, canvasPointer.y);
+          this.activateTool('select');
+          canvasManager.setTool('select');
+          return;
+        }
+
+        // 2. Handle dropped files
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
           const file = e.dataTransfer.files[0];
           if (file.type.startsWith('image/') && pdfEngine.currentDoc) {
