@@ -239,6 +239,23 @@ class CropFilterManager {
 
     target.applyFilters();
     this.canvasManager.canvas.renderAll();
+
+    // Fix BUG-06: Cache the filtered background so it persists across page switches
+    if (target === this.canvasManager.canvas.backgroundImage) {
+      const currPage = window.pdfEngine ? window.pdfEngine.getCurrentPage() : null;
+      if (currPage) {
+        // Use a slight timeout to ensure filter is fully rendered before caching
+        setTimeout(() => {
+          currPage.bgDataUrl = target.toDataURL({ format: 'png', quality: 1.0 });
+          if (currPage.fabricJSON) {
+            currPage.fabricJSON.customBgDataUrl = currPage.bgDataUrl;
+          }
+          this.canvasManager.saveState();
+        }, 50);
+      }
+    } else {
+      this.canvasManager.saveState();
+    }
   }
 
   syncFiltersWithObject() {
@@ -283,5 +300,21 @@ class CropFilterManager {
 
     target.applyFilters();
     this.canvasManager.canvas.renderAll();
+
+    // Fix BUG-06: Cache the filtered background so it persists across page switches
+    if (target === this.canvasManager.canvas.backgroundImage) {
+      const currPage = window.pdfEngine ? window.pdfEngine.getCurrentPage() : null;
+      if (currPage) {
+        setTimeout(() => {
+          currPage.bgDataUrl = target.toDataURL({ format: 'png', quality: 1.0 });
+          if (currPage.fabricJSON) {
+            currPage.fabricJSON.customBgDataUrl = currPage.bgDataUrl;
+          }
+          this.canvasManager.saveState();
+        }, 50);
+      }
+    } else {
+      this.canvasManager.saveState();
+    }
   }
 }
