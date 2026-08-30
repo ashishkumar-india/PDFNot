@@ -1318,11 +1318,18 @@ class CanvasManager {
       this.canvas.backgroundImage = null;
     }
 
+    // Save viewport state and reset to 1:1 scale to prevent zoom/pan from clipping export
+    const vpt = this.canvas.viewportTransform.slice();
+    this.canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
+
     const dataUrl = this.canvas.toDataURL({
       format: format === 'jpg' ? 'jpeg' : format,
       quality: quality,
       multiplier: 2.0 // Crisp 2x HD export
     });
+
+    // Restore viewport state
+    this.canvas.viewportTransform = vpt;
 
     if (isTransparent && format === 'png') {
       this.canvas.backgroundImage = originalBg;
@@ -1391,16 +1398,8 @@ class CanvasManager {
    */
   savePageAnnotations() {
     const objectsJSON = this.canvas.getObjects().map(obj => obj.toObject(['id', 'selectable', 'evented', 'lockMovementX', 'lockMovementY']));
-    let bgDataUrl = null;
-    if (this.canvas.backgroundImage && this.canvas.backgroundImage._element) {
-      const imgEl = this.canvas.backgroundImage._element;
-      if (imgEl.src && imgEl.src.startsWith('data:image')) {
-        bgDataUrl = imgEl.src;
-      }
-    }
     return {
-      objects: objectsJSON,
-      customBgDataUrl: bgDataUrl
+      objects: objectsJSON
     };
   }
 
@@ -1598,36 +1597,94 @@ class CanvasManager {
       const fontSizeEl = document.getElementById('text-font-size');
       const textColorPicker = document.getElementById('text-color-picker');
       const textColorHex = document.getElementById('text-color-hex');
-      const btnBold = document.getElementById('btn-text-bold');
-      const btnItalic = document.getElementById('btn-text-italic');
-      const btnUnderline = document.getElementById('btn-text-underline');
-      const btnStrike = document.getElementById('btn-text-strike');
-
+      const textBgPicker = document.getElementById('text-bg-picker');
+      
       if (fontFamilyEl && obj.fontFamily) fontFamilyEl.value = obj.fontFamily;
       if (fontSizeEl && obj.fontSize) fontSizeEl.value = obj.fontSize;
+      
       if (obj.fill && typeof obj.fill === 'string') {
         const hexColor = this.rgbOrHexToHex(obj.fill);
         if (textColorPicker) textColorPicker.value = hexColor;
         if (textColorHex) textColorHex.textContent = hexColor.toUpperCase();
       }
-      if (btnBold) btnBold.classList.toggle('active', obj.fontWeight === 'bold');
-      if (btnItalic) btnItalic.classList.toggle('active', obj.fontStyle === 'italic');
-      if (btnUnderline) btnUnderline.classList.toggle('active', !!obj.underline);
-      if (btnStrike) btnStrike.classList.toggle('active', !!obj.linethrough);
+
+      if (obj.textBackgroundColor) {
+        const isTransparent = obj.textBackgroundColor === 'transparent';
+        document.getElementById('btn-text-bg-transparent')?.classList.toggle('active', isTransparent);
+        if (!isTransparent && textBgPicker) {
+          textBgPicker.value = this.rgbOrHexToHex(obj.textBackgroundColor);
+        }
+      } else {
+        document.getElementById('btn-text-bg-transparent')?.classList.add('active');
+      }
+
+      // Styles
+      document.getElementById('btn-text-bold')?.classList.toggle('active', obj.fontWeight === 'bold');
+      document.getElementById('btn-text-italic')?.classList.toggle('active', obj.fontStyle === 'italic');
+      document.getElementById('btn-text-underline')?.classList.toggle('active', !!obj.underline);
+      document.getElementById('btn-text-strike')?.classList.toggle('active', !!obj.linethrough);
+
+      // Alignment
+      document.querySelectorAll('.btn-toggle-group .btn-toggle').forEach(b => {
+        if (b.id.startsWith('btn-align-')) b.classList.remove('active');
+      });
+      if (obj.textAlign) {
+        document.getElementById(`btn-align-${obj.textAlign}`)?.classList.add('active');
+      }
     }
 
-    // Sync Shape Props
-    if (obj.stroke) {
-      if (typeof obj.stroke === 'string' && obj.stroke.startsWith('#')) {
-        document.getElementById('brush-color-picker').value = obj.stroke;
+    // Sync Shape Props (Fill & Corner Radius)
+    if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'triangle' || obj.type === 'ellipse') {
+      const shapeFillPicker = document.getElementById('shape-fill-picker');
+      const btnTransparent = document.getElementById('btn-shape-fill-transparent');
+      
+      if (obj.fill) {
+        const isTransparent = obj.fill === 'transparent';
+        if (btnTransparent) btnTransparent.classList.toggle('active', isTransparent);
+        if (!isTransparent && shapeFillPicker) {
+          shapeFillPicker.value = this.rgbOrHexToHex(obj.fill);
+        }
       }
-      if (obj.strokeWidth) document.getElementById('brush-width-slider').value = obj.strokeWidth;
+
+      if (obj.type === 'rect') {
+        const radiusSlider = document.getElementById('shape-corner-radius');
+        const radiusVal = document.getElementById('val-corner-radius');
+        if (radiusSlider && obj.rx !== undefined) {
+          radiusSlider.value = obj.rx;
+          if (radiusVal) radiusVal.textContent = obj.rx;
+        }
+      }
+    }
+
+    // Sync Stroke / Brush
+    if (obj.stroke && typeof obj.stroke === 'string') {
+      const brushPicker = document.getElementById('brush-color-picker');
+      const opacitySlider = document.getElementById('brush-opacity-slider');
+      const opacityVal = document.getElementById('val-brush-opacity');
+
+      const match = obj.stroke.match(/rgba?\([^,]+,[^,]+,[^,]+,([\d.]+)\)/);
+      let alpha = 1;
+      if (match) {
+        alpha = parseFloat(match[1]);
+      }
+      
+      if (brushPicker) brushPicker.value = this.rgbOrHexToHex(obj.stroke);
+      if (opacitySlider) opacitySlider.value = Math.round(alpha * 100);
+      if (opacityVal) opacityVal.textContent = Math.round(alpha * 100);
+    }
+    if (obj.strokeWidth !== undefined) {
+      const brushSlider = document.getElementById('brush-width-slider');
+      const widthVal = document.getElementById('val-brush-width');
+      if (brushSlider) brushSlider.value = obj.strokeWidth;
+      if (widthVal) widthVal.textContent = obj.strokeWidth;
     }
 
     // Sync Opacity
     if (obj.opacity !== undefined) {
-      document.getElementById('object-opacity-slider').value = Math.round(obj.opacity * 100);
-      document.getElementById('val-object-opacity').textContent = Math.round(obj.opacity * 100);
+      const opSlider = document.getElementById('object-opacity-slider');
+      const opVal = document.getElementById('val-object-opacity');
+      if (opSlider) opSlider.value = Math.round(obj.opacity * 100);
+      if (opVal) opVal.textContent = Math.round(obj.opacity * 100);
     }
   }
 

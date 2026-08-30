@@ -194,7 +194,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const currentPageData = pdfEngine.getCurrentPage();
       if (currentPageData) {
+        const oldBg = currentPageData.fabricJSON?.customBgDataUrl;
         currentPageData.fabricJSON = canvasManager.savePageAnnotations();
+        if (oldBg) currentPageData.fabricJSON.customBgDataUrl = oldBg;
       }
 
       pdfEngine.setCurrentPageIndex(targetIndex);
@@ -202,18 +204,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       this.scheduleAutoSave();
     },
 
-    goToNextPage() {
+    async goToNextPage() {
       if (pdfEngine.currentPageIndex < pdfEngine.pagesData.length - 1) {
         canvasManager.triggerHaptic('medium');
-        this.switchToPage(pdfEngine.currentPageIndex + 1);
+        await this.switchToPage(pdfEngine.currentPageIndex + 1);
         canvasManager.showToast(`📄 Page ${pdfEngine.currentPageIndex + 1} of ${pdfEngine.pagesData.length}`, 'info');
       }
     },
 
-    goToPrevPage() {
+    async goToPrevPage() {
       if (pdfEngine.currentPageIndex > 0) {
         canvasManager.triggerHaptic('medium');
-        this.switchToPage(pdfEngine.currentPageIndex - 1);
+        await this.switchToPage(pdfEngine.currentPageIndex - 1);
         canvasManager.showToast(`📄 Page ${pdfEngine.currentPageIndex + 1} of ${pdfEngine.pagesData.length}`, 'info');
       }
     },
@@ -251,7 +253,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btnDel = document.createElement('button');
         btnDel.className = 'thumb-btn text-danger btn-del-thumb';
         btnDel.title = 'Delete Page';
-        btnDel.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        const delIcon = document.createElement('i');
+        delIcon.className = 'fa-solid fa-trash';
+        btnDel.appendChild(delIcon);
         thumbActions.appendChild(btnDel);
 
         thumbItem.appendChild(previewWrap);
@@ -332,7 +336,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async addNewPage() {
       const curr = pdfEngine.getCurrentPage();
-      if (curr) curr.fabricJSON = canvasManager.savePageAnnotations();
+      if (curr) {
+        const oldBg = curr.fabricJSON?.customBgDataUrl;
+        curr.fabricJSON = canvasManager.savePageAnnotations();
+        if (oldBg) curr.fabricJSON.customBgDataUrl = oldBg;
+      }
 
       const newIdx = pdfEngine.addNewPage();
       this.renderThumbnails();
@@ -342,6 +350,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async rotateCurrentPage(deg) {
       const idx = pdfEngine.currentPageIndex;
+      const pData = pdfEngine.pagesData[idx];
+
+      if (pData) {
+        const oldBg = pData.fabricJSON?.customBgDataUrl;
+        pData.fabricJSON = canvasManager.savePageAnnotations();
+        
+        if (oldBg) {
+          pData.fabricJSON.customBgDataUrl = await pdfEngine._rotateImageDataUrl(oldBg, deg);
+        }
+
+        if (pData.fabricJSON.objects && pData.fabricJSON.objects.length > 0) {
+          const cw = canvasManager.canvas.getWidth();
+          const ch = canvasManager.canvas.getHeight();
+          
+          pData.fabricJSON.objects.forEach(obj => {
+            const oldX = obj.left || 0;
+            const oldY = obj.top || 0;
+            
+            if (deg === 90) {
+              obj.left = ch - oldY;
+              obj.top = oldX;
+            } else if (deg === -90) {
+              obj.left = oldY;
+              obj.top = cw - oldX;
+            }
+            obj.angle = (obj.angle || 0) + deg;
+          });
+        }
+      }
+
       pdfEngine.rotatePage(idx, deg);
       await this.renderCurrentPage();
       this.renderThumbnails();
@@ -358,6 +396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (e.target.files && e.target.files[0]) {
             this.handleFileUpload(e.target.files[0]);
           }
+          e.target.value = ''; // Reset so same file can be re-uploaded
         });
       }
 
@@ -585,6 +624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
             reader.readAsDataURL(e.target.files[0]);
           }
+          e.target.value = ''; // Reset so same file can be re-uploaded
         });
       }
 
@@ -996,6 +1036,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       });
 
+      // Brush Opacity Slider (BUG-08 fix: was previously non-functional)
+      const brushOpacitySlider = document.getElementById('brush-opacity-slider');
+      if (brushOpacitySlider) {
+        brushOpacitySlider.addEventListener('input', (e) => {
+          document.getElementById('val-brush-opacity').textContent = e.target.value;
+          if (canvasManager.canvas.freeDrawingBrush) {
+            const baseColor = document.getElementById('brush-color-picker')?.value || '#ef4444';
+            canvasManager.canvas.freeDrawingBrush.color =
+              canvasManager.hexToRgba(baseColor, parseInt(e.target.value) / 100);
+          }
+        });
+      }
+
+      // Shape Corner Radius Slider (BUG-09 fix: was previously non-functional)
+      const cornerRadiusSlider = document.getElementById('shape-corner-radius');
+      if (cornerRadiusSlider) {
+        cornerRadiusSlider.addEventListener('input', (e) => {
+          document.getElementById('val-corner-radius').textContent = e.target.value;
+          const obj = canvasManager.canvas.getActiveObject();
+          if (obj && obj.set && (obj.type === 'rect')) {
+            const radius = parseInt(e.target.value) || 0;
+            obj.set({ rx: radius, ry: radius });
+            canvasManager.canvas.renderAll();
+            canvasManager.saveState();
+          }
+        });
+      }
+
       // Shape Fill & Opacity
       const shapeFillPicker = document.getElementById('shape-fill-picker');
       if (shapeFillPicker) {
@@ -1320,10 +1388,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
           
           const tempCanvasEl = document.createElement('canvas');
-          tempCanvasEl.width = pData.renderWidth || pData.originalWidth || 794;
-          tempCanvasEl.height = pData.renderHeight || pData.originalHeight || 1123;
+          const renderW = pData.renderWidth || pData.originalWidth || 794;
+          const renderH = pData.renderHeight || pData.originalHeight || 1123;
+          tempCanvasEl.width = renderW;
+          tempCanvasEl.height = renderH;
 
-          const tempFabric = new fabric.Canvas(tempCanvasEl);
+          // Use StaticCanvas for export to prevent DOM retina scaling distortion
+          const tempFabric = new fabric.StaticCanvas(tempCanvasEl, {
+            width: renderW,
+            height: renderH,
+            enableRetinaScaling: false
+          });
           
           try {
             if (bgUrl) {
@@ -1331,8 +1406,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 fabric.Image.fromURL(bgUrl, (img) => {
                   img.set({
                     originX: 'left', originY: 'top',
-                    scaleX: tempCanvasEl.width / img.width,
-                    scaleY: tempCanvasEl.height / img.height,
+                    scaleX: tempFabric.getWidth() / img.width,
+                    scaleY: tempFabric.getHeight() / img.height,
                     selectable: false
                   });
                   tempFabric.setBackgroundImage(img, res);
@@ -1366,7 +1441,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pdfBlob = await pdfEngine.exportAsPDF(getPageComposite);
         const downloadUrl = URL.createObjectURL(pdfBlob);
         
-        let filename = document.getElementById('doc-filename').value.trim() || 'Document-Edited.pdf';
+        let filename = (document.getElementById('doc-filename').value.trim() || 'Document-Edited.pdf')
+          .replace(/[<>:"/\\|?*]/g, '_'); // Sanitize special chars for safe download
         if (!filename.endsWith('.pdf')) filename += '.pdf';
 
         const a = document.createElement('a');
@@ -1510,7 +1586,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { console.warn('Session restore check failed:', e); }
 
       document.getElementById('btn-restore-session')?.addEventListener('click', async () => {
         canvasManager.triggerHaptic('success');
@@ -1538,7 +1614,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!pdfEngine.pagesData || pdfEngine.pagesData.length === 0) return;
       try {
         const curr = pdfEngine.getCurrentPage();
-        if (curr) curr.fabricJSON = canvasManager.savePageAnnotations();
+        if (curr) {
+          const oldBg = curr.fabricJSON?.customBgDataUrl;
+          curr.fabricJSON = canvasManager.savePageAnnotations();
+          if (oldBg) curr.fabricJSON.customBgDataUrl = oldBg;
+        }
 
         const backupData = {
           timestamp: Date.now(),
@@ -1554,7 +1634,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           }))
         };
         localStorage.setItem('ak_edit_session_backup', JSON.stringify(backupData));
-      } catch (e) {}
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+          console.warn('Auto-save: localStorage quota exceeded, session backup skipped.');
+        }
+      }
     },
 
     async restoreAutoSavedSession() {

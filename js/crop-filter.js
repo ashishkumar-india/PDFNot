@@ -16,6 +16,11 @@ class CropFilterManager {
   init() {
     this.bindCropEvents();
     this.bindFilterEvents();
+
+    // Auto-sync image filters when selection changes
+    this.canvasManager.canvas.on('selection:created', () => this.syncFiltersWithObject());
+    this.canvasManager.canvas.on('selection:updated', () => this.syncFiltersWithObject());
+    this.canvasManager.canvas.on('selection:cleared', () => this.syncFiltersWithObject());
   }
 
   bindCropEvents() {
@@ -234,6 +239,32 @@ class CropFilterManager {
 
     target.applyFilters();
     this.canvasManager.canvas.renderAll();
+  }
+
+  syncFiltersWithObject() {
+    const activeObj = this.canvasManager.canvas.getActiveObject();
+    const target = (activeObj && activeObj.type === 'image') ? activeObj : this.canvasManager.canvas.backgroundImage;
+    
+    let bVal = 0, cVal = 0, sVal = 0, blurVal = 0;
+    
+    if (target && target.filters) {
+      target.filters.forEach(f => {
+        if (f instanceof fabric.Image.filters.Brightness) bVal = f.brightness * 100;
+        if (f instanceof fabric.Image.filters.Contrast) cVal = f.contrast * 100;
+        if (f instanceof fabric.Image.filters.Saturation) sVal = f.saturation * 100;
+        if (f instanceof fabric.Image.filters.Blur) blurVal = f.blur * 20;
+      });
+    }
+
+    const bSlider = document.getElementById('filter-brightness');
+    const cSlider = document.getElementById('filter-contrast');
+    const sSlider = document.getElementById('filter-saturation');
+    const blurSlider = document.getElementById('filter-blur');
+
+    if (bSlider) { bSlider.value = bVal; document.getElementById('val-filter-bright').textContent = Math.round(bVal); }
+    if (cSlider) { cSlider.value = cVal; document.getElementById('val-filter-contrast').textContent = Math.round(cVal); }
+    if (sSlider) { sSlider.value = sVal; document.getElementById('val-filter-sat').textContent = Math.round(sVal); }
+    if (blurSlider) { blurSlider.value = blurVal; document.getElementById('val-filter-blur').textContent = Math.round(blurVal); }
   }
 
   toggleInvert() {

@@ -108,11 +108,11 @@ class PDFTextEditor {
   }
 
   toggleTextEditMode(forceState = null) {
-    this.isTextEditMode = (forceState !== null) ? forceState : true;
+    this.isTextEditMode = (forceState !== null) ? forceState : !this.isTextEditMode;
     const btnEditText = document.getElementById('btn-edit-pdf-text');
-    if (btnEditText) btnEditText.classList.add('active');
+    if (btnEditText) btnEditText.classList.toggle('active', this.isTextEditMode);
 
-    if (this.extractedLines.length === 0) {
+    if (this.isTextEditMode && this.extractedLines.length === 0) {
       this.extractTextFromCurrentPage();
     }
   }
@@ -1306,15 +1306,17 @@ class PDFTextEditor {
     }
 
     const escapedFind = findStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escapedFind, 'gi');
     let matchCount = 0;
 
     // 1. Find & replace in already converted canvas IText objects
     const objects = this.canvasManager.canvas.getObjects();
     objects.forEach(obj => {
-      if ((obj.type === 'i-text' || obj.type === 'text') && obj.text && regex.test(obj.text)) {
-        matchCount++;
-        obj.set('text', obj.text.replace(regex, () => replaceStr));
+      if ((obj.type === 'i-text' || obj.type === 'text') && obj.text) {
+        const regex = new RegExp(escapedFind, 'gi');
+        if (regex.test(obj.text)) {
+          matchCount++;
+          obj.set('text', obj.text.replace(new RegExp(escapedFind, 'gi'), () => replaceStr));
+        }
       }
     });
 
@@ -1322,10 +1324,13 @@ class PDFTextEditor {
     if (this.extractedLines && this.extractedLines.length > 0) {
       for (let i = this.extractedLines.length - 1; i >= 0; i--) {
         const line = this.extractedLines[i];
-        if (line && line.text && regex.test(line.text)) {
-          matchCount++;
-          line.text = line.text.replace(regex, () => replaceStr);
-          this.convertLineToEditableText(line, i);
+        if (line && line.text) {
+          const regex = new RegExp(escapedFind, 'gi');
+          if (regex.test(line.text)) {
+            matchCount++;
+            line.text = line.text.replace(new RegExp(escapedFind, 'gi'), () => replaceStr);
+            this.convertLineToEditableText(line, i);
+          }
         }
       }
     }

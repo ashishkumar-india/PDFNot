@@ -633,10 +633,10 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
   border: 1px solid var(--border-color-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: 8px 6px;
+  padding: 6px 4px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   z-index: 40;
   backdrop-filter: var(--glass-blur);
   transition: left var(--transition-normal);
@@ -651,7 +651,7 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
 .tool-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   position: relative;
 }
 .tool-separator {
@@ -661,13 +661,13 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
 }
 
 .tool-btn {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  font-size: 16px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -678,9 +678,8 @@ button, label, [role="button"], .tool-btn, .btn, .nav-btn, .ctx-btn,
               transform var(--transition-spring-fast),
               box-shadow 0.2s ease,
               border-color var(--transition-fast);
-  /* Minimum touch target */
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 36px;
+  min-height: 36px;
 }
 .tool-btn:hover {
   background: var(--bg-surface-hover);
