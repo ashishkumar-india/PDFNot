@@ -147,93 +147,14 @@ class CanvasManager {
   }
 
   /**
-   * Smart Magnetic Center Alignment Guidelines
+   * Smart Magnetic Alignment Guidelines (Canva-style)
    */
   initSnapGuidelines() {
-    this.canvas.on('object:moving', (e) => {
-      const obj = e.target;
-      if (!obj) return;
-
-      const pageW = this.canvas.getWidth();
-      const pageH = this.canvas.getHeight();
-      const centerX = pageW / 2;
-      const centerY = pageH / 2;
-
-      const bound = obj.getBoundingRect(true);
-      const objCenterX = bound.left + bound.width / 2;
-      const objCenterY = bound.top + bound.height / 2;
-
-      let snapped = false;
-
-      // Magnetic Snap to Center X
-      if (Math.abs(objCenterX - centerX) < this.snapThreshold) {
-        const diffX = centerX - objCenterX;
-        obj.left += diffX;
-        this.snapLines.x = centerX;
-        snapped = true;
-      } else {
-        this.snapLines.x = null;
-      }
-
-      // Magnetic Snap to Center Y
-      if (Math.abs(objCenterY - centerY) < this.snapThreshold) {
-        const diffY = centerY - objCenterY;
-        obj.top += diffY;
-        this.snapLines.y = centerY;
-        snapped = true;
-      } else {
-        this.snapLines.y = null;
-      }
-
-      if (snapped && !this._didSnapHaptic) {
-        this.triggerHaptic('light');
-        this._didSnapHaptic = true;
-      } else if (!snapped) {
-        this._didSnapHaptic = false;
-      }
-
-      this.canvas.requestRenderAll();
-    });
-
-    // Render Cyan Smart Guidelines over Canvas
-    this.canvas.on('after:render', () => {
-      if (this.snapLines.x === null && this.snapLines.y === null) return;
-      const ctx = this.canvas.contextTop;
-      if (!ctx) return;
-
-      ctx.save();
-      ctx.strokeStyle = '#0284c7';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 4]);
-
-      if (this.snapLines.x !== null) {
-        ctx.beginPath();
-        ctx.moveTo(this.snapLines.x, 0);
-        ctx.lineTo(this.snapLines.x, this.canvas.getHeight());
-        ctx.stroke();
-      }
-
-      if (this.snapLines.y !== null) {
-        ctx.beginPath();
-        ctx.moveTo(0, this.snapLines.y);
-        ctx.lineTo(this.canvas.getWidth(), this.snapLines.y);
-        ctx.stroke();
-      }
-      ctx.restore();
-    });
-
-    const clearGuidelines = () => {
-      if (this.snapLines.x !== null || this.snapLines.y !== null) {
-        this.snapLines.x = null;
-        this.snapLines.y = null;
-        this._didSnapHaptic = false;
-        this.canvas.requestRenderAll();
-      }
-    };
-
-    this.canvas.on('object:modified', clearGuidelines);
-    this.canvas.on('mouse:up', clearGuidelines);
-    this.canvas.on('selection:cleared', clearGuidelines);
+    if (typeof SmartAlignGuides !== 'undefined') {
+      this.smartGuides = new SmartAlignGuides(this.canvas);
+    } else {
+      console.warn("SmartAlignGuides class not found.");
+    }
   }
 
   bindCanvasEvents() {
