@@ -464,6 +464,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       backdrop?.addEventListener('click', closeDrawers);
 
+      // Inspector Tabs (Design vs Layers)
+      const tabBtns = document.querySelectorAll('.panel-tab-btn');
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabBtns.forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.panel-tab-content').forEach(c => c.classList.remove('active'));
+          
+          btn.classList.add('active');
+          const targetId = btn.getAttribute('data-target');
+          if (targetId) {
+            document.getElementById(targetId)?.classList.add('active');
+            
+            if (targetId === 'panel-layers' && typeof canvasManager !== 'undefined' && canvasManager.updateLayersPanel) {
+              canvasManager.updateLayersPanel();
+            }
+          }
+        });
+      });
+
       // Sidebar Rotate & Delete
       document.getElementById('btn-rotate-page-left')?.addEventListener('click', () => this.rotateCurrentPage(-90));
       document.getElementById('btn-rotate-page-right')?.addEventListener('click', () => this.rotateCurrentPage(90));

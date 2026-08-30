@@ -1700,3 +1700,117 @@ label {
     padding: 6px 4px calc(64px + env(safe-area-inset-bottom, 0px)) 4px;
   }
 }
+
+/* ==================== 
+   CANVA-STYLE INSPECTOR TABS & LAYERS 
+==================== */
+.tabs-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 0 14px !important;
+  border-bottom: 1px solid var(--border-color);
+}
+.panel-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 4px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+}
+.panel-tab-btn:hover {
+  color: var(--text-primary);
+}
+.panel-tab-btn.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+.panel-tab-content {
+  display: none;
+}
+.panel-tab-content.active {
+  display: block;
+}
+
+/* Layers Panel Styles */
+.layers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+.layer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-body);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: grab;
+  transition: all var(--transition-speed);
+}
+.layer-item:active {
+  cursor: grabbing;
+}
+.layer-item.active {
+  border-color: var(--primary-color);
+  background: rgba(59, 130, 246, 0.05); /* very light blue */
+}
+.layer-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+}
+.layer-info i {
+  color: var(--text-secondary);
+  width: 16px;
+  text-align: center;
+}
+.layer-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+.layer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.layer-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.layer-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.layer-btn.text-danger:hover {
+  color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.1);
+}
+.layer-item.placeholder {
+  justify-content: center;
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+}

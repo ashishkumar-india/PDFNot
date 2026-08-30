@@ -182,10 +182,15 @@ class CanvasManager {
       if (e.target) this.positionFloatingContextBar(e.target);
     });
 
-    // Object Modification for Undo/Redo — debounced: rapid batch changes only record once
+    // Object Modification for Undo/Redo & Layers Panel
     const debouncedRecord = () => {
       clearTimeout(this._historyDebounceTimer);
-      this._historyDebounceTimer = setTimeout(() => this.recordHistory(), 50);
+      this._historyDebounceTimer = setTimeout(() => {
+        this.recordHistory();
+        if (document.getElementById('panel-layers')?.classList.contains('active')) {
+          this.updateLayersPanel();
+        }
+      }, 50);
     };
     this.canvas.on('object:added', debouncedRecord);
     this.canvas.on('object:modified', debouncedRecord);
@@ -1775,6 +1780,177 @@ class CanvasManager {
     setTimeout(() => {
       toast.remove();
     }, 3000);
+  }
+
+  // ====================
+  // LAYERS PANEL LOGIC
+  // ====================
+
+  updateLayersPanel() {
+    const listContainer = document.getElementById('layers-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+    const objects = this.canvas.getObjects();
+    
+    // We reverse the array because objects drawn last (highest z-index) are at the end of the array,
+    // but in UI layers panels, the highest object is usually at the TOP of the list.
+    const reversedObjects = [...objects].reverse();
+
+    if (reversedObjects.length === 0) {
+      listContainer.innerHTML = `<div class="layer-item placeholder"><span>No objects on this page.</span></div>`;
+      return;
+    }
+
+    reversedObjects.forEach((obj, idx) => {
+      // Don't show internal objects like guides or the background if it's set as a canvas object
+      if (obj.excludeFromExport || obj.isGuide) return;
+      
+      const realIndex = objects.indexOf(obj);
+      const layerItem = this.createLayerHTML(obj, realIndex);
+      listContainer.appendChild(layerItem);
+    });
+  }
+
+  createLayerHTML(obj, realIndex) {
+    const el = document.createElement('div');
+    el.className = 'layer-item';
+    if (this.canvas.getActiveObject() === obj) {
+      el.classList.add('active');
+    }
+
+    // Determine icon and name based on type
+    let icon = 'fa-shapes';
+    let name = 'Shape';
+    
+    if (obj.type === 'i-text' || obj.type === 'textbox') {
+      icon = 'fa-font';
+      name = obj.text ? (obj.text.substring(0, 15) + (obj.text.length > 15 ? '...' : '')) : 'Text';
+    } else if (obj.type === 'image') {
+      icon = 'fa-image';
+      name = 'Image';
+    } else if (obj.type === 'path') {
+      icon = 'fa-pen-nib';
+      name = 'Drawing';
+    } else if (obj.type === 'rect') {
+      icon = 'fa-square';
+      name = 'Rectangle';
+    } else if (obj.type === 'circle') {
+      icon = 'fa-circle';
+      name = 'Circle';
+    }
+
+    const isLocked = !obj.selectable && !obj.evented;
+    const lockIcon = isLocked ? 'fa-lock' : 'fa-lock-open';
+    const eyeIcon = obj.visible !== false ? 'fa-eye' : 'fa-eye-slash';
+
+    el.innerHTML = `
+      <div class="layer-info" title="Drag to reorder">
+        <i class="fa-solid fa-grip-vertical text-muted" style="cursor: grab;"></i>
+        <i class="fa-solid ${icon}"></i>
+        <span class="layer-name">${name}</span>
+      </div>
+      <div class="layer-actions">
+        <button class="layer-btn btn-visibility" title="Toggle Visibility">
+          <i class="fa-solid ${eyeIcon}"></i>
+        </button>
+        <button class="layer-btn btn-lock" title="Lock/Unlock">
+          <i class="fa-solid ${lockIcon}"></i>
+        </button>
+        <button class="layer-btn text-danger btn-delete" title="Delete">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </div>
+    `;
+
+    // Click to select
+    el.querySelector('.layer-info').addEventListener('click', () => {
+      if (!isLocked && obj.visible !== false) {
+        this.canvas.setActiveObject(obj);
+        this.canvas.requestRenderAll();
+        this.updateLayersPanel();
+      }
+    });
+
+    // Visibility Toggle
+    el.querySelector('.btn-visibility').addEventListener('click', (e) => {
+      e.stopPropagation();
+      obj.set('visible', obj.visible === false ? true : false);
+      if (obj.visible === false && this.canvas.getActiveObject() === obj) {
+        this.canvas.discardActiveObject();
+      }
+      this.canvas.requestRenderAll();
+      this.recordHistory();
+      this.updateLayersPanel();
+    });
+
+    // Lock Toggle
+    el.querySelector('.btn-lock').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const lockState = !isLocked; // If it was locked, unlock it.
+      obj.set({
+        selectable: !lockState,
+        evented: !lockState,
+        lockMovementX: lockState,
+        lockMovementY: lockState,
+        lockRotation: lockState,
+        lockScalingX: lockState,
+        lockScalingY: lockState
+      });
+      if (lockState && this.canvas.getActiveObject() === obj) {
+        this.canvas.discardActiveObject();
+      }
+      this.canvas.requestRenderAll();
+      this.recordHistory();
+      this.updateLayersPanel();
+    });
+
+    // Delete
+    el.querySelector('.btn-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.canvas.remove(obj);
+      // object:removed event will automatically trigger debouncedRecord and updateLayersPanel
+    });
+
+    // HTML5 Drag and Drop for Reordering
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', realIndex);
+      el.style.opacity = '0.5';
+    });
+    
+    el.addEventListener('dragend', () => {
+      el.style.opacity = '1';
+    });
+
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault(); // Necessary to allow dropping
+      el.style.borderTop = '2px solid var(--primary-color)';
+    });
+    
+    el.addEventListener('dragleave', () => {
+      el.style.borderTop = '';
+    });
+
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.style.borderTop = '';
+      const draggedObjIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      const targetObjIndex = realIndex;
+      
+      if (!isNaN(draggedObjIndex) && draggedObjIndex !== targetObjIndex) {
+        const objects = this.canvas.getObjects();
+        const draggedObj = objects[draggedObjIndex];
+        if (draggedObj) {
+          draggedObj.moveTo(targetObjIndex);
+          this.canvas.requestRenderAll();
+          this.recordHistory();
+          this.updateLayersPanel();
+        }
+      }
+    });
+
+    return el;
   }
 }
 

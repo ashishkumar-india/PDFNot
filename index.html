@@ -353,17 +353,15 @@
 
     <!-- RIGHT INSPECTOR PANEL (Dynamic properties for active tool & selection) -->
     <aside class="inspector-sidebar" id="inspector-sidebar">
-      <div class="inspector-header">
-        <div class="inspector-title" id="inspector-panel-title">
-          <i class="fa-solid fa-sliders"></i>
-          <span>Properties</span>
-        </div>
-        <button id="btn-toggle-inspector" class="btn-icon-xs" title="Close Properties">
+      <div class="inspector-header tabs-header">
+        <button class="panel-tab-btn active" data-target="panel-properties" id="tab-properties">Design</button>
+        <button class="panel-tab-btn" data-target="panel-layers" id="tab-layers">Layers</button>
+        <button id="btn-toggle-inspector" class="btn-icon-xs" title="Close Properties" style="margin-left: auto;">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="inspector-content">
+      <div class="inspector-content panel-tab-content active" id="panel-properties">
 
         <!-- SECTION: IMAGE SPECIFIC (Controls & Auto Background Remover) -->
         <div class="prop-section" id="sec-image-bg-props" style="display:none;">
@@ -579,8 +577,18 @@
             <button class="btn btn-ghost btn-xs" id="prop-btn-center-v"><i class="fa-solid fa-arrows-up-down-left-right"></i> Center V</button>
           </div>
         </div>
+      </div> <!-- End Properties Tab -->
 
-      </div>
+      <!-- LAYERS TAB CONTENT -->
+      <div class="inspector-content panel-tab-content" id="panel-layers">
+        <div class="layers-container" id="layers-list">
+          <!-- Populated dynamically via JS -->
+          <div class="layer-item placeholder">
+            <span>No objects on this page.</span>
+          </div>
+        </div>
+      </div> <!-- End Layers Tab -->
+
     </aside>
 
   </main>
