@@ -1671,13 +1671,6 @@ class CanvasManager {
   replaceSelectedImage() {
     const activeObj = this.canvas.getActiveObject();
     if (!activeObj || activeObj.type !== 'image') {
-      this.showToast("Please select an image to replace.", "error");
-      return;
-    }
-
-  replaceSelectedImage() {
-    const activeObj = this.canvas.getActiveObject();
-    if (!activeObj || activeObj.type !== 'image') {
       // Trigger file upload to replace page background image
       document.getElementById('file-input')?.click();
       return;

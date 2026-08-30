@@ -1367,6 +1367,10 @@ class PDFTextEditor {
       document.getElementById('find-replace-modal')?.classList.remove('show');
       this.canvasManager.showToast(`Replaced ${matchCount} occurrence(s) successfully!`, 'success');
     } else {
+      alert(`No matches found for "${findStr}".`);
+    }
+  }
+
   /**
    * Batch converts ALL extracted text lines on current page into editable Fabric IText objects
    * and cleanly erases them from the page background canvas (Canva / Illustrator mode)
