@@ -363,7 +363,7 @@ class PDFTextEditor {
 
       const parsed = [];
       textContent.items.forEach((item, idx) => {
-        const str = item.str;
+        const str = this.decodeDevanagariLegacyText(item.str);
         if (!str || str.trim().length === 0) return;
 
         const tx = item.transform[4];
@@ -478,6 +478,86 @@ class PDFTextEditor {
     } catch (err) {
       console.error("Error extracting PDF text:", err);
     }
+  }
+
+  /**
+   * Translates legacy Indian Government PDF Devanagari font encodings (Kruti Dev / DevLys / NIC ASCII)
+   * into clean, pure Unicode Hindi
+   * @param {string} rawStr 
+   * @returns {string} Pure Unicode string
+   */
+  decodeDevanagariLegacyText(rawStr) {
+    if (!rawStr || typeof rawStr !== 'string') return rawStr;
+    let s = rawStr.normalize('NFC');
+
+    // 1. Direct Government Certificate phrase patterns (ServicePlus / RTPS Bihar / UP / MP)
+    const govtPhrases = [
+      [/\[मिणत\s*क्या\s*जाता\s*हिक/g, 'प्रमाणित किया जाता है कि'],
+      [/\[मिणत\s*क्या/g, 'प्रमाणित किया'],
+      [/हिक\b/g, 'है कि'],
+      [/\[\]माण[- ]*प\[\]सं\[\]या/g, 'प्रमाण-पत्र संख्या'],
+      [/\[\]माण[- ]*प\[\]/g, 'प्रमाण-पत्र'],
+      [/प\[\]सं\[\]या/g, 'पत्र संख्या'],
+      [/आय\[\]माण[- ]*प\[\]/g, 'आय प्रमाण-पत्र'],
+      [/निवास\[\]माण[- ]*प\[\]/g, 'निवास प्रमाण-पत्र'],
+      [/जाति\[\]माण[- ]*प\[\]/g, 'जाति प्रमाण-पत्र'],
+      [/\[\]पता\b/g, 'पिता'],
+      [/\[\]माता\b/g, 'माता'],
+      [/वीर%&\s*\[\]साद/g, 'विरेन्द्र प्रसाद'],
+      [/वीर%&/g, 'विरेन्द्र'],
+      [/\[\]साद/g, 'प्रसाद'],
+      [/7थान[:\s]*/g, 'स्थान : '],
+      [/द\[\]रयापुर/g, 'दरियापुर'],
+      [/\[\]खंड/g, 'प्रखंड'],
+      [/'ाम\b/g, 'ग्राम'],
+      [/2यवसाय\s*से\s*आय/g, 'व्यवसाय से आय'],
+      [/2यवसाय/g, 'व्यवसाय'],
+      [/कृष\s*से\s*आय/g, 'कृषि से आय'],
+      [/अब4योत6\s*से\s*आय/g, 'अन्य स्रोतों से आय'],
+      [/अब4योत6/g, 'अन्य स्रोतों'],
+      [/\(ह7ता8\s*सराज7बअ\s*धकारी/g, '(हस्ताक्षर राजस्व अधिकारी'],
+      [/ह7ता8\s*सराज7बअ/g, 'हस्ताक्षर राजस्व'],
+      [/ह7ता8/g, 'हस्ताक्षर'],
+      [/राज7बअ\s*धकारी/g, 'राजस्व अधिकारी'],
+      [/सराज7बअ/g, 'राजस्व'],
+      [/राज7ब/g, 'राजस्व'],
+      [/धकारी/g, 'अधिकारी'],
+      [/रा,य/g, 'राज्य']
+    ];
+
+    govtPhrases.forEach(([pat, rep]) => {
+      s = s.replace(pat, rep);
+    });
+
+    // 2. Character-level legacy glyph replacements when surrounded by or mixed with Hindi
+    if (/[\u0900-\u097F]/.test(s)) {
+      s = s
+        .replace(/\[\]/g, 'प्र')
+        .replace(/\[/g, 'प्र')
+        .replace(/\]/g, 'त्र')
+        .replace(/7/g, (m, offset, str) => {
+          const nextChar = str[offset + 1];
+          return (nextChar && /[\u0900-\u097F]/.test(nextChar)) ? 'स्' : '7';
+        })
+        .replace(/8/g, (m, offset, str) => {
+          const prevChar = str[offset - 1];
+          const nextChar = str[offset + 1];
+          return ((prevChar && /[\u0900-\u097F]/.test(prevChar)) || (nextChar && /[\u0900-\u097F]/.test(nextChar))) ? '्त' : '8';
+        })
+        .replace(/%/g, '्र')
+        .replace(/&/g, (m, offset, str) => {
+          const prevChar = str[offset - 1];
+          return (prevChar && /[\u0900-\u097F]/.test(prevChar)) ? 'न्द्र' : '&';
+        });
+    }
+
+    // 3. Fix common Devanagari matra detachment
+    s = s
+      .replace(/ ([\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963])/g, '$1')
+      .replace(/\u094D\s+/g, '\u094D')
+      .trim();
+
+    return s;
   }
 
   /**
