@@ -467,10 +467,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         let extractedImagesCount = 0;
         let extractedTextCount = 0;
 
-        // 1. Extract embedded images & logos
+        // 1. Extract embedded images & logos and cleanly erase their spot on background
         if (pdfEngine.currentDoc && pdfEngine.currentDoc.type === 'pdf') {
           const images = await pdfEngine.extractPageImages(pageIndex);
           if (images && images.length > 0) {
+            const bgImage = canvasManager.canvas.backgroundImage;
+            let offCanvas = null;
+            let offCtx = null;
+            let scaleX = 1, scaleY = 1;
+
+            if (bgImage && bgImage._element) {
+              const imgEl = bgImage._element;
+              scaleX = bgImage.scaleX || 1;
+              scaleY = bgImage.scaleY || 1;
+              offCanvas = document.createElement('canvas');
+              offCanvas.width = imgEl.naturalWidth || imgEl.width;
+              offCanvas.height = imgEl.naturalHeight || imgEl.height;
+              offCtx = offCanvas.getContext('2d');
+              offCtx.drawImage(imgEl, 0, 0);
+            }
+
             for (const imgInfo of images) {
               await new Promise((resolve) => {
                 fabric.Image.fromURL(imgInfo.dataUrl, (fImg) => {
@@ -492,7 +508,44 @@ document.addEventListener('DOMContentLoaded', async () => {
                   resolve();
                 });
               });
+
+              // Erase photo area on the background canvas so moving the photo moves it cleanly!
+              if (offCtx) {
+                const iX = Math.round(imgInfo.left / scaleX);
+                const iY = Math.round(imgInfo.top / scaleY);
+                const iW = Math.round(imgInfo.width / scaleX);
+                const iH = Math.round(imgInfo.height / scaleY);
+                offCtx.fillStyle = '#ffffff';
+                offCtx.fillRect(Math.max(iX - 1, 0), Math.max(iY - 1, 0), iW + 2, iH + 2);
+              }
               extractedImagesCount++;
+            }
+
+            if (offCanvas) {
+              const newBgDataUrl = offCanvas.toDataURL('image/png');
+              const currPage = pdfEngine.getCurrentPage();
+              if (currPage) {
+                if (!currPage.fabricJSON) currPage.fabricJSON = {};
+                currPage.fabricJSON.customBgDataUrl = newBgDataUrl;
+              }
+              await new Promise((resolve) => {
+                fabric.Image.fromURL(newBgDataUrl, (newBg) => {
+                  newBg.set({
+                    originX: 'left',
+                    originY: 'top',
+                    left: 0,
+                    top: 0,
+                    scaleX: scaleX,
+                    scaleY: scaleY,
+                    selectable: false,
+                    evented: false
+                  });
+                  canvasManager.canvas.setBackgroundImage(newBg, () => {
+                    canvasManager.canvas.renderAll();
+                    resolve();
+                  });
+                });
+              });
             }
           }
         }

@@ -1581,14 +1581,19 @@ class PDFTextEditor {
 
       // Create Fabric IText
       const isBold = line.fontWeight === 'bold' || line.fontWeight === '700' || line.fontWeight === '800';
-      const tObj = new fabric.IText(line.text, {
+      const cleanText = (line.text || '').normalize('NFC');
+      const hasHindi = /[\u0900-\u097F]/.test(cleanText);
+      const fontFam = hasHindi ? "'Noto Sans Devanagari', 'Mukta', 'Mangal', 'Nirmala UI', sans-serif" : (line.fontFamily || "Arimo, 'Helvetica Neue', Helvetica, Arial, sans-serif");
+
+      const tObj = new fabric.IText(cleanText, {
         left: line.x,
         top: line.y,
         fontSize: line.fontSize,
-        fontFamily: line.fontFamily || "Arimo, 'Helvetica Neue', Helvetica, Arial, sans-serif",
+        fontFamily: fontFam,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: line.fontStyle || 'normal',
         fill: textColor,
+        charSpacing: 0, // MUST be 0 to keep complex Hindi matras and conjuncts joined
         stroke: null,
         strokeWidth: 0,
         textBackgroundColor: 'transparent',
