@@ -970,6 +970,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       }
 
+      // Image Background Fill Color
+      const imageBgPicker = document.getElementById('image-bg-picker');
+      const btnImageBgTransparent = document.getElementById('btn-image-bg-transparent');
+      
+      if (imageBgPicker) {
+        imageBgPicker.addEventListener('input', (e) => {
+          const obj = canvasManager.canvas.getActiveObject();
+          if (obj && obj.type === 'image') {
+            obj.set('backgroundColor', e.target.value);
+            btnImageBgTransparent?.classList.remove('active');
+            canvasManager.canvas.renderAll();
+            canvasManager.saveState();
+          }
+        });
+      }
+      
+      if (btnImageBgTransparent) {
+        btnImageBgTransparent.addEventListener('click', () => {
+          const obj = canvasManager.canvas.getActiveObject();
+          if (obj && obj.type === 'image') {
+            obj.set('backgroundColor', 'transparent');
+            btnImageBgTransparent.classList.add('active');
+            canvasManager.canvas.renderAll();
+            canvasManager.saveState();
+          }
+        });
+      }
+
       // Text Props: Font Family & Size
       const fontSelect = document.getElementById('text-font-family');
       if (fontSelect) {

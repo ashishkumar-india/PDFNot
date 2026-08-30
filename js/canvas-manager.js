@@ -1515,6 +1515,16 @@ class CanvasManager {
     const imgBgSec = document.getElementById('sec-image-bg-props');
     if (imgBgSec) {
       imgBgSec.style.display = (obj.type === 'image') ? 'flex' : 'none';
+      if (obj.type === 'image') {
+        const imageBgPicker = document.getElementById('image-bg-picker');
+        const btnImageBgTransparent = document.getElementById('btn-image-bg-transparent');
+        
+        const isTransparent = !obj.backgroundColor || obj.backgroundColor === 'transparent';
+        if (btnImageBgTransparent) btnImageBgTransparent.classList.toggle('active', isTransparent);
+        if (!isTransparent && imageBgPicker) {
+          imageBgPicker.value = this.rgbOrHexToHex(obj.backgroundColor);
+        }
+      }
     }
 
     // Sync Text Props

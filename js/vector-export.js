@@ -233,6 +233,20 @@ class VectorExportEngine {
             const h = (obj.height || pdfImg.height) * scaleY;
             const pdfY = pageH - fabricY - h;
 
+            if (obj.backgroundColor && obj.backgroundColor !== 'transparent') {
+              const bgColor = this.parseColor(obj.backgroundColor);
+              if (bgColor) {
+                page.drawRectangle({
+                  x: fabricX,
+                  y: pdfY,
+                  width: w,
+                  height: h,
+                  color: this.rgb(bgColor.r, bgColor.g, bgColor.b),
+                  rotate: this.degrees(-angle)
+                });
+              }
+            }
+
             page.drawImage(pdfImg, {
               x: fabricX,
               y: pdfY,

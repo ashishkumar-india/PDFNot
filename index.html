@@ -380,7 +380,20 @@
               <input type="range" id="inspector-bg-tol" min="5" max="95" value="35" class="form-range">
             </div>
           </div>
-          <button class="btn btn-danger btn-sm w-100 mt-2" id="btn-inspector-delete-img">
+          
+          <div class="form-row mt-3">
+            <div class="form-col col-12">
+              <label>Image Background Fill</label>
+              <div class="color-picker-wrapper" style="width: 100%;">
+                <input type="color" id="image-bg-picker" value="#ffffff">
+                <button class="btn-transparent-toggle" id="btn-image-bg-transparent" title="Transparent Fill">
+                  <i class="fa-solid fa-ban"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-danger btn-sm w-100 mt-3" id="btn-inspector-delete-img">
             <i class="fa-solid fa-trash-can"></i> Delete Image
           </button>
         </div>
