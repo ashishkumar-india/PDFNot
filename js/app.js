@@ -55,8 +55,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       this.initWorkspaceThemes();
       this.initAutoSave();
 
-      // Load Sample Document by default so user can test immediately!
-      await this.loadSampleDocument();
+      // Initialize with a blank document instead of the sample
+      pdfEngine.createBlankDocument();
+      await this.renderCurrentPage();
+      this.renderThumbnails();
     },
 
     // ==================== DOCUMENT LOADING ====================
