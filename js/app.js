@@ -461,6 +461,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btnClose = document.getElementById('btn-close-new-doc-modal');
       const btnCancel = document.getElementById('btn-cancel-new-doc-modal');
       const btnCreate = document.getElementById('btn-create-new-doc');
+      const btnOpenFile = document.getElementById('btn-open-file-modal');
       const presetSelect = document.getElementById('new-doc-preset');
       const inputW = document.getElementById('new-doc-width');
       const inputH = document.getElementById('new-doc-height');
@@ -472,6 +473,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       btnClose?.addEventListener('click', hideModal);
       btnCancel?.addEventListener('click', hideModal);
+
+      // Open Image / PDF Direct
+      btnOpenFile?.addEventListener('click', () => {
+        hideModal();
+        document.getElementById('file-input')?.click();
+      });
 
       // Preset Change
       presetSelect?.addEventListener('change', (e) => {
