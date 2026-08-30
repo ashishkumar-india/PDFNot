@@ -976,26 +976,47 @@ class PDFTextEditor {
   sampleSurroundingBgColor(ctx, x, y, w, h, maxW, maxH) {
     const samples = [];
     const step = 4;
+    
+    const startX = Math.max(0, Math.floor(x - 4));
+    const startY = Math.max(0, Math.floor(y - 4));
+    const endX = Math.min(maxW, Math.ceil(x + w + 4));
+    const endY = Math.min(maxH, Math.ceil(y + h + 4));
+    const blockW = endX - startX;
+    const blockH = endY - startY;
+
+    if (blockW <= 0 || blockH <= 0) return { r: 255, g: 255, b: 255 };
+
+    const imgData = ctx.getImageData(startX, startY, blockW, blockH);
+    const data = imgData.data;
+
+    const getPixel = (px, py) => {
+      const idx = ((py - startY) * blockW + (px - startX)) * 4;
+      if (idx >= 0 && idx < data.length) {
+        return { r: data[idx], g: data[idx + 1], b: data[idx + 2] };
+      }
+      return null;
+    };
+
     // Top & bottom borders
-    for (let px = Math.max(0, x); px < Math.min(x + w, maxW); px += step) {
+    for (let px = startX; px < endX; px += step) {
       if (y - 4 >= 0) {
-        const d = ctx.getImageData(px, y - 4, 1, 1).data;
-        samples.push({ r: d[0], g: d[1], b: d[2] });
+        const p = getPixel(px, Math.floor(y - 4));
+        if (p) samples.push(p);
       }
       if (y + h + 4 < maxH) {
-        const d = ctx.getImageData(px, y + h + 4, 1, 1).data;
-        samples.push({ r: d[0], g: d[1], b: d[2] });
+        const p = getPixel(px, Math.floor(y + h + 4));
+        if (p) samples.push(p);
       }
     }
     // Left & right borders
-    for (let py = Math.max(0, y); py < Math.min(y + h, maxH); py += step) {
+    for (let py = startY; py < endY; py += step) {
       if (x - 4 >= 0) {
-        const d = ctx.getImageData(x - 4, py, 1, 1).data;
-        samples.push({ r: d[0], g: d[1], b: d[2] });
+        const p = getPixel(Math.floor(x - 4), py);
+        if (p) samples.push(p);
       }
       if (x + w + 4 < maxW) {
-        const d = ctx.getImageData(x + w + 4, py, 1, 1).data;
-        samples.push({ r: d[0], g: d[1], b: d[2] });
+        const p = getPixel(Math.floor(x + w + 4), py);
+        if (p) samples.push(p);
       }
     }
 
