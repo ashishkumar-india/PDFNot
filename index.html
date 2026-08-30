@@ -17,8 +17,30 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
   
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/style.css?v=4.7">
-  <link rel="stylesheet" href="css/components.css?v=4.7">
+  <link rel="stylesheet" href="css/style.css?v=4.8">
+  <link rel="stylesheet" href="css/components.css?v=4.8">
+
+  <script>
+    // Polyfill to fix CanvasTextBaseline 'alphabetical' enum warning from third-party libraries
+    try {
+      const proto = CanvasRenderingContext2D.prototype;
+      const desc = Object.getOwnPropertyDescriptor(proto, 'textBaseline');
+      if (desc && desc.set) {
+        const origSet = desc.set;
+        Object.defineProperty(proto, 'textBaseline', {
+          set(v) {
+            if (v === 'alphabetical') v = 'alphabetic';
+            origSet.call(this, v);
+          },
+          get() {
+            return desc.get.call(this);
+          },
+          configurable: true,
+          enumerable: true
+        });
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body class="dark-theme">
 
@@ -1128,16 +1150,16 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 
   <!-- 6. App Modules -->
-  <script src="js/bg-remover.js?v=4.7"></script>
-  <script src="js/sample-data.js?v=4.7"></script>
-  <script src="js/vector-export.js?v=4.7"></script>
-  <script src="js/pdf-engine.js?v=4.7"></script>
-  <script src="js/signature-modal.js?v=4.7"></script>
-  <script src="js/crop-filter.js?v=4.7"></script>
-  <script src="js/pdf-text-editor.js?v=4.7"></script>
-  <script src="js/smart-guides.js?v=4.7"></script>
-  <script src="js/canvas-manager.js?v=4.7"></script>
-  <script src="js/app.js?v=4.7"></script>
+  <script src="js/bg-remover.js?v=4.8"></script>
+  <script src="js/sample-data.js?v=4.8"></script>
+  <script src="js/vector-export.js?v=4.8"></script>
+  <script src="js/pdf-engine.js?v=4.8"></script>
+  <script src="js/signature-modal.js?v=4.8"></script>
+  <script src="js/crop-filter.js?v=4.8"></script>
+  <script src="js/pdf-text-editor.js?v=4.8"></script>
+  <script src="js/smart-guides.js?v=4.8"></script>
+  <script src="js/canvas-manager.js?v=4.8"></script>
+  <script src="js/app.js?v=4.8"></script>
 
 </body>
 </html>
