@@ -300,6 +300,11 @@
   max-height: 95%;
   object-fit: contain;
 }
+.preview-box img:not([src]),
+.preview-box img[src=""],
+.preview-box img[src="#"] {
+  display: none !important;
+}
 
 /* Checkerboard Pattern for Transparent PNGs */
 .checkerboard-bg {

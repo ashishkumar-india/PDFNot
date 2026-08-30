@@ -997,16 +997,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     openBackgroundRemoverModal() {
       const modal = document.getElementById('bg-remove-modal');
       if (modal) modal.classList.add('show');
+      if (!this.bgOriginalDataUrl) {
+        const origImg = document.getElementById('bg-original-img');
+        const procImg = document.getElementById('bg-processed-img');
+        const origPl = document.getElementById('bg-orig-placeholder');
+        const procPl = document.getElementById('bg-proc-placeholder');
+        const btnInsert = document.getElementById('btn-insert-bg-image');
+        if (origImg) { origImg.style.display = 'none'; origImg.removeAttribute('src'); }
+        if (procImg) { procImg.style.display = 'none'; procImg.removeAttribute('src'); }
+        if (origPl) origPl.style.display = 'flex';
+        if (procPl) procPl.style.display = 'flex';
+        if (btnInsert) btnInsert.disabled = true;
+      }
     },
 
     async loadAndProcessBgImage(dataUrl) {
       this.bgOriginalDataUrl = dataUrl;
       const origImg = document.getElementById('bg-original-img');
-      origImg.src = dataUrl;
-      document.getElementById('bg-orig-placeholder').style.display = 'none';
+      if (origImg) {
+        origImg.src = dataUrl;
+        origImg.style.display = 'block';
+      }
+      const origPl = document.getElementById('bg-orig-placeholder');
+      if (origPl) origPl.style.display = 'none';
 
       await this.processImageBackground();
-      document.getElementById('btn-insert-bg-image').disabled = false;
+      const btnInsert = document.getElementById('btn-insert-bg-image');
+      if (btnInsert) btnInsert.disabled = false;
     },
 
     async processImageBackground() {
@@ -1018,8 +1035,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!isEnabled) {
         this.bgProcessedDataUrl = this.bgOriginalDataUrl;
-        procImg.src = this.bgOriginalDataUrl;
-        placeholder.style.display = 'none';
+        if (procImg) {
+          procImg.src = this.bgOriginalDataUrl;
+          procImg.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
         return;
       }
 
@@ -1044,8 +1064,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         this.bgProcessedDataUrl = transparentDataUrl;
-        procImg.src = transparentDataUrl;
-        placeholder.style.display = 'none';
+        if (procImg) {
+          procImg.src = transparentDataUrl;
+          procImg.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
       } catch (err) {
         console.error("Error in background remover:", err);
       }
