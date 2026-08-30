@@ -468,37 +468,16 @@ class PDFEngine {
   }
 
   /**
-   * Exports the entire multi-page document as a real PDF file
-   * Merges all canvas layers and background pages at high resolution
-   * @param {Function} getPageCompositeCanvas - callback to get rasterized canvas for each page
+   * Exports the entire multi-page document as a True Vector PDF
+   * Preserves original PDF structures and draws text/vectors losslessly
    * @returns {Promise<Blob>}
    */
-  async exportAsPDF(getPageCompositeCanvas) {
-    const { PDFDocument } = PDFLib;
-    const pdfDoc = await PDFDocument.create();
-
-    for (let i = 0; i < this.pagesData.length; i++) {
-      const pageData = this.pagesData[i];
-      
-      // Get composite canvas data url for page (background + fabric annotations)
-      const dataUrl = await getPageCompositeCanvas(i);
-      const imgBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
-      const embeddedImage = await pdfDoc.embedPng(imgBytes);
-
-      // Use renderWidth/renderHeight (already rotation-adjusted and scale-exact) for PDF-Lib page size
-      const finalW = pageData.renderWidth || pageData.originalWidth || 595;
-      const finalH = pageData.renderHeight || pageData.originalHeight || 842;
-
-      const page = pdfDoc.addPage([finalW, finalH]);
-      page.drawImage(embeddedImage, {
-        x: 0,
-        y: 0,
-        width: finalW,
-        height: finalH
-      });
+  async exportAsPDF() {
+    if (typeof VectorExportEngine === 'undefined') {
+      throw new Error("VectorExportEngine module is not loaded.");
     }
-
-    const pdfBytes = await pdfDoc.save();
+    const vectorEngine = new VectorExportEngine(PDFLib);
+    const pdfBytes = await vectorEngine.export(this.pagesData, this.currentDoc?.rawBytes);
     return new Blob([pdfBytes], { type: 'application/pdf' });
   }
 }

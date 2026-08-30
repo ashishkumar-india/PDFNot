@@ -1383,70 +1383,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ==================== EXPORT FUNCTIONS ====================
 
     async exportMultiPagePDF() {
-      this.showLoader("Synthesizing Full Multi-Page PDF...");
+      if (!pdfEngine.pagesData || pdfEngine.pagesData.length === 0) return;
+      this.showLoader("Generating True Vector PDF...");
       try {
         const curr = pdfEngine.getCurrentPage();
         if (curr) curr.fabricJSON = canvasManager.savePageAnnotations();
 
-        const getPageComposite = async (pageIdx) => {
-          const pData = pdfEngine.pagesData[pageIdx];
-          let bgUrl = pData.fabricJSON?.customBgDataUrl;
-          if (!bgUrl) {
-            bgUrl = await pdfEngine.renderPageBackground(pageIdx);
-          }
-          
-          const tempCanvasEl = document.createElement('canvas');
-          const renderW = pData.renderWidth || pData.originalWidth || 794;
-          const renderH = pData.renderHeight || pData.originalHeight || 1123;
-          tempCanvasEl.width = renderW;
-          tempCanvasEl.height = renderH;
-
-          // Use StaticCanvas for export to prevent DOM retina scaling distortion
-          const tempFabric = new fabric.StaticCanvas(tempCanvasEl, {
-            width: renderW,
-            height: renderH,
-            enableRetinaScaling: false
-          });
-          
-          try {
-            if (bgUrl) {
-              await new Promise(res => {
-                fabric.Image.fromURL(bgUrl, (img) => {
-                  img.set({
-                    originX: 'left', originY: 'top',
-                    scaleX: tempFabric.getWidth() / img.width,
-                    scaleY: tempFabric.getHeight() / img.height,
-                    selectable: false
-                  });
-                  tempFabric.setBackgroundImage(img, res);
-                }, { crossOrigin: 'anonymous' });
-              });
-            }
-
-            if (pData.fabricJSON) {
-              const objs = Array.isArray(pData.fabricJSON) ? pData.fabricJSON : pData.fabricJSON.objects;
-              if (objs && objs.length > 0) {
-                await new Promise(res => {
-                  fabric.util.enlivenObjects(objs, (enlivenedObjects) => {
-                    enlivenedObjects.forEach((obj) => {
-                      tempFabric.add(obj);
-                    });
-                    tempFabric.renderAll();
-                    res();
-                  });
-                });
-              }
-            }
-
-            const compositeUrl = tempFabric.toDataURL({ format: 'png', quality: 1.0, multiplier: 1.5 });
-            return compositeUrl;
-          } finally {
-            // Always dispose to prevent memory leaks, even if an error occurs
-            tempFabric.dispose();
-          }
-        };
-
-        const pdfBlob = await pdfEngine.exportAsPDF(getPageComposite);
+        const pdfBlob = await pdfEngine.exportAsPDF();
         const downloadUrl = URL.createObjectURL(pdfBlob);
         
         let filename = (document.getElementById('doc-filename').value.trim() || 'Document-Edited.pdf')
