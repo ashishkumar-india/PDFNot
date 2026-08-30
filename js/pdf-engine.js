@@ -212,11 +212,18 @@ class PDFEngine {
 
     // For image/blank/custom docs: save original before clearing so rotation can be re-applied
     if (page.bgDataUrl && !page.originalDataUrl) {
-      page.originalDataUrl = page.bgDataUrl;
+      // Only do this for NON-PDF pages! For PDFs, we want to re-render from source.
+      if (!this.currentDoc || this.currentDoc.type !== 'pdf' || page.isCustom) {
+        page.originalDataUrl = page.bgDataUrl;
+      }
     }
 
-    // Reset so it gets re-rendered with new rotation
-    page.bgDataUrl = page.originalDataUrl || null;
+    // Clear bgDataUrl for PDF pages so they re-render. For images, restore originalDataUrl.
+    if (this.currentDoc && this.currentDoc.type === 'pdf' && !page.isCustom) {
+      page.bgDataUrl = null;
+    } else {
+      page.bgDataUrl = page.originalDataUrl || null;
+    }
     page._rotationApplied = null; // Force re-rotation on next render
     page.renderWidth = null;
     page.renderHeight = null;
@@ -234,9 +241,13 @@ class PDFEngine {
     const pageData = this.pagesData[pageIndex];
     if (!pageData) throw new Error("Page index out of bounds");
 
-    // Return cached render if valid and not rotated
+    // Return cached render if valid and no pending rotation for images
     if (pageData.bgDataUrl) {
-      return pageData.bgDataUrl;
+      if (pageData.rotation !== 0 && pageData._rotationApplied !== pageData.rotation) {
+        // We have pending rotation that needs to be applied, don't return early!
+      } else {
+        return pageData.bgDataUrl;
+      }
     }
 
     if (this.currentDoc && this.currentDoc.type === 'pdf' && this.currentDoc.pdfDocProxy && !pageData.isCustom && pageData.originalPdfPageNum && pageData.originalPdfPageNum <= this.currentDoc.pdfDocProxy.numPages) {

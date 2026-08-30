@@ -125,10 +125,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       this.showLoader(`Rendering Page ${pageIndex + 1}...`);
 
       try {
-        const renderW = pageData.renderWidth || pageData.originalWidth || 794;
-        const renderH = pageData.renderHeight || pageData.originalHeight || 1123;
-
-        // If page has a saved modified background (e.g. with erased text), use that; otherwise render fresh from PDF.js
         let bgDataUrl = pageData.fabricJSON?.customBgDataUrl;
         if (!bgDataUrl) {
           bgDataUrl = await pdfEngine.renderPageBackground(pageIndex);
@@ -136,11 +132,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (token !== this._renderSequenceToken) return;
         
+        // Re-fetch dimensions because renderPageBackground may have updated them after a rotation
+        const finalRenderW = pageData.renderWidth || pageData.originalWidth || 794;
+        const finalRenderH = pageData.renderHeight || pageData.originalHeight || 1123;
+
         if (bgDataUrl) {
-          await canvasManager.setPageBackground(bgDataUrl, renderW, renderH);
+          await canvasManager.setPageBackground(bgDataUrl, finalRenderW, finalRenderH);
         } else {
-          canvasManager.canvas.setWidth(renderW);
-          canvasManager.canvas.setHeight(renderH);
+          canvasManager.canvas.setWidth(finalRenderW);
+          canvasManager.canvas.setHeight(finalRenderH);
           canvasManager.canvas.calcOffset();
         }
 
