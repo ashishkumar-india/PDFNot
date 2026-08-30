@@ -525,6 +525,69 @@ class CanvasManager {
   }
 
   /**
+   * Nudges the selected object(s) by dx, dy pixels
+   * @param {number} dx 
+   * @param {number} dy 
+   */
+  nudgeSelectedObject(dx, dy) {
+    const obj = this.canvas.getActiveObject();
+    if (!obj) return false;
+
+    obj.set({
+      left: (obj.left || 0) + dx,
+      top: (obj.top || 0) + dy
+    });
+    obj.setCoords();
+    this.canvas.requestRenderAll();
+    this.saveState();
+    this.positionFloatingContextBar(obj);
+    return true;
+  }
+
+  /**
+   * Aligns the active object to the page
+   * @param {string} alignment 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'center-both'
+   */
+  alignSelectedObject(alignment) {
+    const obj = this.canvas.getActiveObject();
+    if (!obj) return;
+
+    const cW = this.canvas.getWidth();
+    const cH = this.canvas.getHeight();
+    const oW = obj.getScaledWidth ? obj.getScaledWidth() : (obj.width * (obj.scaleX || 1));
+    const oH = obj.getScaledHeight ? obj.getScaledHeight() : (obj.height * (obj.scaleY || 1));
+
+    switch (alignment) {
+      case 'left':
+        obj.set({ left: 16 });
+        break;
+      case 'center':
+        obj.centerH();
+        break;
+      case 'right':
+        obj.set({ left: Math.max(cW - oW - 16, 0) });
+        break;
+      case 'top':
+        obj.set({ top: 16 });
+        break;
+      case 'middle':
+        obj.centerV();
+        break;
+      case 'bottom':
+        obj.set({ top: Math.max(cH - oH - 16, 0) });
+        break;
+      case 'center-both':
+        obj.center();
+        break;
+    }
+    obj.setCoords();
+    this.canvas.requestRenderAll();
+    this.saveState();
+    this.positionFloatingContextBar(obj);
+    this.showToast(`Aligned ${alignment}`, 'info');
+  }
+
+  /**
    * Sets active tool mode and adjusts canvas behavior
    * @param {string} toolName 
    * @param {object} options 

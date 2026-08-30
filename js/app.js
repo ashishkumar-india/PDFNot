@@ -1505,6 +1505,20 @@ document.addEventListener('DOMContentLoaded', async () => {
           document.getElementById('floating-context-bar')?.classList.remove('show');
         }
       });
+
+      // Position Nudge Buttons (Up, Down, Left, Right)
+      document.getElementById('btn-nudge-up')?.addEventListener('click', () => canvasManager.nudgeSelectedObject(0, -5));
+      document.getElementById('btn-nudge-down')?.addEventListener('click', () => canvasManager.nudgeSelectedObject(0, 5));
+      document.getElementById('btn-nudge-left')?.addEventListener('click', () => canvasManager.nudgeSelectedObject(-5, 0));
+      document.getElementById('btn-nudge-right')?.addEventListener('click', () => canvasManager.nudgeSelectedObject(5, 0));
+      document.getElementById('btn-align-center-both')?.addEventListener('click', () => canvasManager.alignSelectedObject('center-both'));
+
+      // Page Alignment Buttons
+      document.getElementById('btn-align-page-left')?.addEventListener('click', () => canvasManager.alignSelectedObject('left'));
+      document.getElementById('btn-align-page-center')?.addEventListener('click', () => canvasManager.alignSelectedObject('center'));
+      document.getElementById('btn-align-page-right')?.addEventListener('click', () => canvasManager.alignSelectedObject('right'));
+      document.getElementById('btn-align-page-top')?.addEventListener('click', () => canvasManager.alignSelectedObject('top'));
+      document.getElementById('btn-align-page-bottom')?.addEventListener('click', () => canvasManager.alignSelectedObject('bottom'));
     },
 
     bindStampModalActions() {
@@ -1617,6 +1631,31 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
 
+        // Arrow Keys: Nudge Selected Object(s) or Navigate Pages
+        if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
+          const activeObj = canvasManager.canvas.getActiveObject();
+          const step = e.shiftKey ? 10 : 2;
+
+          if (activeObj) {
+            e.preventDefault();
+            switch (e.key.toLowerCase()) {
+              case 'arrowup': canvasManager.nudgeSelectedObject(0, -step); break;
+              case 'arrowdown': canvasManager.nudgeSelectedObject(0, step); break;
+              case 'arrowleft': canvasManager.nudgeSelectedObject(-step, 0); break;
+              case 'arrowright': canvasManager.nudgeSelectedObject(step, 0); break;
+            }
+            return;
+          } else {
+            // When NO object is selected on canvas, left/right switches pages
+            if (e.key.toLowerCase() === 'arrowleft') {
+              this.switchToPage(pdfEngine.currentPageIndex - 1);
+            } else if (e.key.toLowerCase() === 'arrowright') {
+              this.switchToPage(pdfEngine.currentPageIndex + 1);
+            }
+            return;
+          }
+        }
+
         // Quick Tool Keys
         if (!isCtrl) {
           switch (e.key.toLowerCase()) {
@@ -1626,8 +1665,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             case 'p': this.activateTool('draw'); break;
             case 'b': this.activateTool('highlighter'); break;
             case 'e': this.activateTool('eraser'); break;
-            case 'arrowleft': this.switchToPage(pdfEngine.currentPageIndex - 1); break;
-            case 'arrowright': this.switchToPage(pdfEngine.currentPageIndex + 1); break;
           }
         }
       });

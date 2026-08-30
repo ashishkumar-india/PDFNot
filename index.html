@@ -625,6 +625,43 @@
           </div>
         </div>
 
+        <!-- SECTION: ARRANGE & POSITION (Move, Nudge & Align) -->
+        <div class="prop-section" id="sec-position-props">
+          <div class="prop-section-title">
+            <i class="fa-solid fa-arrows-up-down-left-right"></i> Position & Alignment
+          </div>
+          
+          <div class="form-row">
+            <div class="form-col col-12">
+              <label>Nudge Position (Up / Down / Left / Right)</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; max-width: 140px; margin: 6px auto;">
+                <div></div>
+                <button class="btn btn-secondary btn-sm" id="btn-nudge-up" title="Move Up (Arrow Up)"><i class="fa-solid fa-arrow-up"></i></button>
+                <div></div>
+                <button class="btn btn-secondary btn-sm" id="btn-nudge-left" title="Move Left (Arrow Left)"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="btn btn-primary btn-sm" id="btn-align-center-both" title="Center on Page"><i class="fa-solid fa-crosshairs"></i></button>
+                <button class="btn btn-secondary btn-sm" id="btn-nudge-right" title="Move Right (Arrow Right)"><i class="fa-solid fa-arrow-right"></i></button>
+                <div></div>
+                <button class="btn btn-secondary btn-sm" id="btn-nudge-down" title="Move Down (Arrow Down)"><i class="fa-solid fa-arrow-down"></i></button>
+                <div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row mt-2">
+            <div class="form-col col-12">
+              <label>Page Alignment</label>
+              <div class="btn-toggle-group" style="display: flex; gap: 4px; justify-content: space-between;">
+                <button class="btn-toggle" id="btn-align-page-left" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+                <button class="btn-toggle" id="btn-align-page-center" title="Center Horizontally"><i class="fa-solid fa-align-center"></i></button>
+                <button class="btn-toggle" id="btn-align-page-right" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                <button class="btn-toggle" id="btn-align-page-top" title="Align Top"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+                <button class="btn-toggle" id="btn-align-page-bottom" title="Align Bottom"><i class="fa-solid fa-arrow-down-from-bracket"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- SECTION: GENERAL TRANSFORM / OPACITY -->
         <div class="prop-section">
           <div class="prop-section-title">
@@ -1174,16 +1211,16 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 
   <!-- 6. App Modules -->
-  <script src="js/bg-remover.js?v=5.0"></script>
-  <script src="js/sample-data.js?v=5.0"></script>
-  <script src="js/vector-export.js?v=5.0"></script>
-  <script src="js/pdf-engine.js?v=5.0"></script>
-  <script src="js/signature-modal.js?v=5.0"></script>
-  <script src="js/crop-filter.js?v=5.0"></script>
-  <script src="js/pdf-text-editor.js?v=5.0"></script>
-  <script src="js/smart-guides.js?v=5.0"></script>
-  <script src="js/canvas-manager.js?v=5.0"></script>
-  <script src="js/app.js?v=5.0"></script>
+  <script src="js/bg-remover.js?v=5.1"></script>
+  <script src="js/sample-data.js?v=5.1"></script>
+  <script src="js/vector-export.js?v=5.1"></script>
+  <script src="js/pdf-engine.js?v=5.1"></script>
+  <script src="js/signature-modal.js?v=5.1"></script>
+  <script src="js/crop-filter.js?v=5.1"></script>
+  <script src="js/pdf-text-editor.js?v=5.1"></script>
+  <script src="js/smart-guides.js?v=5.1"></script>
+  <script src="js/canvas-manager.js?v=5.1"></script>
+  <script src="js/app.js?v=5.1"></script>
 
 </body>
 </html>
