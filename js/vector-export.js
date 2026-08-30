@@ -122,6 +122,80 @@ class VectorExportEngine {
           rotate: this.degrees(-angle)
         });
       }
+      else if (obj.type === 'circle') {
+        const radius = (obj.radius || 0) * scaleX;
+        const fillColor = this.parseColor(obj.fill);
+        const strokeColor = this.parseColor(obj.stroke);
+        
+        // pdf-lib ellipse origin is its center
+        // Fabric circle origin is top-left by default, unless originX/Y are 'center'
+        let centerX = fabricX + radius;
+        let centerY = pageH - fabricY - radius;
+        if (obj.originX === 'center') centerX = fabricX;
+        if (obj.originY === 'center') centerY = pageH - fabricY;
+
+        page.drawEllipse({
+          x: centerX,
+          y: centerY,
+          xScale: radius,
+          yScale: radius * (scaleY / scaleX),
+          color: fillColor ? this.rgb(fillColor.r, fillColor.g, fillColor.b) : undefined,
+          borderColor: strokeColor ? this.rgb(strokeColor.r, strokeColor.g, strokeColor.b) : undefined,
+          borderWidth: obj.strokeWidth || 0,
+          opacity: obj.opacity !== undefined ? obj.opacity : 1
+        });
+      }
+      else if (obj.type === 'line') {
+        const strokeColor = this.parseColor(obj.stroke);
+        
+        // Fabric lines have x1, y1, x2, y2 coordinates plus left/top bounding box
+        // To be safe with rotations, we calculate from the bounding box if it moved
+        let startX = fabricX;
+        let startY = pageH - fabricY;
+        let endX = fabricX + ((obj.x2 - obj.x1) * scaleX);
+        let endY = pageH - (fabricY + ((obj.y2 - obj.y1) * scaleY));
+
+        page.drawLine({
+          start: { x: startX, y: startY },
+          end: { x: endX, y: endY },
+          thickness: (obj.strokeWidth || 1) * scaleY,
+          color: strokeColor ? this.rgb(strokeColor.r, strokeColor.g, strokeColor.b) : this.rgb(0,0,0),
+          opacity: obj.opacity !== undefined ? obj.opacity : 1
+        });
+      }
+      else if (obj.type === 'polygon' || obj.type === 'group') {
+        // For complex groups (like the Arrow shape) or polygons (Star),
+        // translating perfect vector math manually is error-prone.
+        // We will rasterize them into high-res transparent PNGs and embed them.
+        try {
+          // Temporarily clone the object to get a data URL without affecting canvas
+          const dataUrl = obj.toDataURL({ format: 'png', multiplier: 3 });
+          const imgBytes = await fetch(dataUrl).then(r => r.arrayBuffer());
+          const pdfImg = await newPdf.embedPng(imgBytes);
+          
+          const w = (obj.width || pdfImg.width / 3) * scaleX;
+          const h = (obj.height || pdfImg.height / 3) * scaleY;
+          
+          // Fabric origin logic
+          let leftOffset = 0;
+          let topOffset = 0;
+          if (obj.originX === 'center') leftOffset = w / 2;
+          if (obj.originY === 'center') topOffset = h / 2;
+
+          const pdfY = pageH - fabricY - h + topOffset;
+
+          page.drawImage(pdfImg, {
+            x: fabricX - leftOffset,
+            y: pdfY,
+            width: w,
+            height: h,
+            opacity: obj.opacity !== undefined ? obj.opacity : 1,
+            rotate: this.degrees(-angle)
+          });
+        } catch (e) {
+          console.error("Failed to vector-export complex shape:", e);
+        }
+      }
       else if (obj.type === 'path') {
         // Freehand drawings (Brush tool)
         // pdf-lib drawSvgPath is tricky because the path coordinates are absolute to the page.

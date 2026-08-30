@@ -250,6 +250,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const thumbActions = document.createElement('div');
         thumbActions.className = 'thumb-actions';
+
+        const btnDup = document.createElement('button');
+        btnDup.className = 'thumb-btn text-primary btn-dup-thumb';
+        btnDup.title = 'Duplicate Page';
+        const dupIcon = document.createElement('i');
+        dupIcon.className = 'fa-solid fa-copy';
+        btnDup.appendChild(dupIcon);
+        thumbActions.appendChild(btnDup);
+
         const btnDel = document.createElement('button');
         btnDel.className = 'thumb-btn text-danger btn-del-thumb';
         btnDel.title = 'Delete Page';
@@ -261,6 +270,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         thumbItem.appendChild(previewWrap);
         thumbItem.appendChild(label);
         thumbItem.appendChild(thumbActions);
+
+        // HTML5 Drag and Drop for Page Reordering
+        thumbItem.draggable = true;
+        thumbItem.addEventListener('dragstart', (e) => {
+          if (e.target.closest('.thumb-actions')) {
+            e.preventDefault();
+            return;
+          }
+          e.dataTransfer.setData('text/plain', i);
+          thumbItem.style.opacity = '0.5';
+        });
+
+        thumbItem.addEventListener('dragend', () => {
+          thumbItem.style.opacity = '1';
+        });
+
+        thumbItem.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          thumbItem.style.borderTop = '3px solid var(--primary-color)';
+        });
+
+        thumbItem.addEventListener('dragleave', () => {
+          thumbItem.style.borderTop = '';
+        });
+
+        thumbItem.addEventListener('drop', (e) => {
+          e.preventDefault();
+          thumbItem.style.borderTop = '';
+          const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+          const targetIndex = i;
+          
+          if (!isNaN(draggedIndex) && draggedIndex !== targetIndex) {
+            pdfEngine.movePage(draggedIndex, targetIndex);
+            this.renderThumbnails();
+            this.renderCurrentPage();
+            canvasManager.showToast('Page moved successfully!', 'info');
+          }
+        });
 
         thumbItem.addEventListener('click', (e) => {
           if (e.target.closest('.thumb-actions')) return;
@@ -276,6 +323,18 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (confirm(`Delete Page ${i + 1}?`)) {
             this.deletePage(i);
           }
+        });
+
+        btnDup.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          // Duplicate the page
+          const pageData = pdfEngine.pagesData[i];
+          const clonedPage = JSON.parse(JSON.stringify(pageData)); // Deep clone simple properties
+          pdfEngine.pagesData.splice(i + 1, 0, clonedPage);
+          pdfEngine.setCurrentPageIndex(i + 1);
+          this.renderThumbnails();
+          this.renderCurrentPage();
+          canvasManager.showToast(`Page ${i + 1} duplicated!`, 'success');
         });
 
         container.appendChild(thumbItem);

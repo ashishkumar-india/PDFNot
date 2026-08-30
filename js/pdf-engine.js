@@ -467,6 +467,34 @@ class PDFEngine {
     }
   }
 
+  deletePage(index) {
+    if (this.pagesData.length <= 1) {
+      throw new Error("Cannot delete the last page.");
+    }
+    this.pagesData.splice(index, 1);
+    if (this.currentPageIndex >= this.pagesData.length) {
+      this.currentPageIndex = this.pagesData.length - 1;
+    } else if (this.currentPageIndex > index) {
+      this.currentPageIndex--;
+    }
+    return this.currentPageIndex;
+  }
+
+  movePage(fromIndex, toIndex) {
+    if (fromIndex < 0 || fromIndex >= this.pagesData.length || toIndex < 0 || toIndex >= this.pagesData.length) return;
+    const pageToMove = this.pagesData.splice(fromIndex, 1)[0];
+    this.pagesData.splice(toIndex, 0, pageToMove);
+    
+    // Update active index if it moved
+    if (this.currentPageIndex === fromIndex) {
+      this.currentPageIndex = toIndex;
+    } else if (fromIndex < this.currentPageIndex && toIndex >= this.currentPageIndex) {
+      this.currentPageIndex--;
+    } else if (fromIndex > this.currentPageIndex && toIndex <= this.currentPageIndex) {
+      this.currentPageIndex++;
+    }
+  }
+
   /**
    * Exports the entire multi-page document as a True Vector PDF
    * Preserves original PDF structures and draws text/vectors losslessly
