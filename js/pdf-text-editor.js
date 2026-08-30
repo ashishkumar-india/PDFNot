@@ -864,24 +864,38 @@ class PDFTextEditor {
       const ctx = this.canvasManager.canvas.getContext();
       ctx.save();
       ctx.font = `${textObj.fontStyle || 'normal'} ${textObj.fontWeight || 'normal'} ${textObj.fontSize}px ${textObj.fontFamily}`;
-      let accumW = 0;
-      let targetIdx = textObj.text.length;
-      for (let i = 0; i < textObj.text.length; i++) {
-        const cW = ctx.measureText(textObj.text[i]).width;
-        if (relX < accumW + (cW / 2)) {
-          targetIdx = i;
-          break;
+      
+      const textLen = textObj.text.length;
+      let targetIdx = textLen;
+      let closestDist = Infinity;
+
+      for (let i = 0; i <= textLen; i++) {
+        const subStr = textObj.text.substring(0, i);
+        let subW = ctx.measureText(subStr).width;
+        if (textObj.charSpacing && i > 0) {
+          subW += (i * (textObj.charSpacing / 1000) * textObj.fontSize);
         }
-        accumW += cW;
+        const dist = Math.abs(relX - subW);
+        if (dist < closestDist) {
+          closestDist = dist;
+          targetIdx = i;
+        }
       }
       ctx.restore();
 
       textObj.selectionStart = targetIdx;
       textObj.selectionEnd = targetIdx;
+      if (typeof textObj.setSelectionStart === 'function') {
+        textObj.setSelectionStart(targetIdx);
+        textObj.setSelectionEnd(targetIdx);
+      }
       if (textObj.hiddenTextarea) {
-        textObj.hiddenTextarea.selectionStart = targetIdx;
-        textObj.hiddenTextarea.selectionEnd = targetIdx;
-        textObj.hiddenTextarea.focus();
+        try {
+          textObj.hiddenTextarea.selectionStart = targetIdx;
+          textObj.hiddenTextarea.selectionEnd = targetIdx;
+          textObj.hiddenTextarea.setSelectionRange(targetIdx, targetIdx);
+          textObj.hiddenTextarea.focus();
+        } catch (e) {}
       }
     }
 

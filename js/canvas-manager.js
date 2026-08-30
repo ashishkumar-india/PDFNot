@@ -694,7 +694,26 @@ class CanvasManager {
         this.addTextAtPosition(pointer.x, pointer.y, 'Text');
       } else if (opt.target.type === 'i-text') {
         this.canvas.setActiveObject(opt.target);
-        opt.target.enterEditing();
+        opt.target.enterEditing(evt);
+        if (opt.target.getSelectionStartFromPointer) {
+          const charIndex = opt.target.getSelectionStartFromPointer(evt);
+          if (typeof charIndex === 'number' && !isNaN(charIndex)) {
+            opt.target.selectionStart = charIndex;
+            opt.target.selectionEnd = charIndex;
+            if (typeof opt.target.setSelectionStart === 'function') {
+              opt.target.setSelectionStart(charIndex);
+              opt.target.setSelectionEnd(charIndex);
+            }
+            if (opt.target.hiddenTextarea) {
+              try {
+                opt.target.hiddenTextarea.selectionStart = charIndex;
+                opt.target.hiddenTextarea.selectionEnd = charIndex;
+                opt.target.hiddenTextarea.setSelectionRange(charIndex, charIndex);
+              } catch (e) {}
+            }
+          }
+        }
+        this.canvas.requestRenderAll();
       }
       return;
     }
