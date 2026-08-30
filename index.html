@@ -608,6 +608,69 @@
 
   <!-- ==================== MODALS ==================== -->
 
+  <!-- 0. NEW DOCUMENT MODAL -->
+  <div class="modal-overlay" id="new-doc-modal">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-file-circle-plus text-primary"></i>
+          <span>New Document Setup</span>
+        </div>
+        <button class="modal-close" id="btn-close-new-doc-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-row mb-3">
+          <div class="form-col col-12">
+            <label>Document Preset</label>
+            <select id="new-doc-preset" class="form-select">
+              <option value="A4" data-width="794" data-height="1123" selected>A4 (794 x 1123 px)</option>
+              <option value="Letter" data-width="816" data-height="1056">US Letter (816 x 1056 px)</option>
+              <option value="Web" data-width="1920" data-height="1080">Web 1080p (1920 x 1080 px)</option>
+              <option value="IG" data-width="1080" data-height="1080">Instagram Post (1080 x 1080 px)</option>
+              <option value="Custom" data-width="" data-height="">Custom Size...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row mb-3" style="align-items: center;">
+          <div class="form-col col-5">
+            <label>Width (px)</label>
+            <input type="number" id="new-doc-width" class="form-input" value="794" min="100" max="10000">
+          </div>
+          <div class="form-col col-2" style="text-align: center; margin-top: 24px;">
+            <button class="btn btn-ghost" id="btn-swap-dimensions" title="Swap Width & Height">
+              <i class="fa-solid fa-right-left"></i>
+            </button>
+          </div>
+          <div class="form-col col-5">
+            <label>Height (px)</label>
+            <input type="number" id="new-doc-height" class="form-input" value="1123" min="100" max="10000">
+          </div>
+        </div>
+
+        <div class="form-row mb-2">
+          <div class="form-col col-12">
+            <label>Background Fill</label>
+            <div class="color-picker-wrapper" style="width: 100%;">
+              <input type="color" id="new-doc-bg-picker" value="#ffffff">
+              <button class="btn-transparent-toggle" id="btn-new-doc-bg-transparent" title="Transparent Background">
+                <i class="fa-solid fa-ban"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-new-doc-modal">Cancel</button>
+        <button class="btn btn-primary" id="btn-create-new-doc">
+          <i class="fa-solid fa-check"></i> Create Document
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 1. IMAGE & AUTO BACKGROUND REMOVAL MODAL -->
   <div class="modal-overlay" id="bg-remove-modal">
     <div class="modal-card modal-xl">

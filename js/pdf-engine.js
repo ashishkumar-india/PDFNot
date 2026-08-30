@@ -106,8 +106,9 @@ class PDFEngine {
    * Creates a new blank page document
    * @param {number} width 
    * @param {number} height 
+   * @param {string} bgColor Background color (hex, rgb, or 'transparent')
    */
-  createBlankDocument(width = 794, height = 1123) { // Standard A4 at 96 DPI
+  createBlankDocument(width = 794, height = 1123, bgColor = '#ffffff') {
     this.currentDoc = {
       type: 'blank',
       name: 'Untitled-Document.pdf',
@@ -115,13 +116,18 @@ class PDFEngine {
       totalPages: 1
     };
 
-    // Create a plain white canvas data URL
+    // Create a canvas for the background
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    
+    if (bgColor && bgColor !== 'transparent') {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      ctx.clearRect(0, 0, width, height);
+    }
 
     this.pagesData = [{
       id: 'page_blank_' + Date.now(),

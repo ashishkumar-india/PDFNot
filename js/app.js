@@ -55,10 +55,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       this.initWorkspaceThemes();
       this.initAutoSave();
 
-      // Initialize with a blank document instead of the sample
-      pdfEngine.createBlankDocument();
-      await this.renderCurrentPage();
-      this.renderThumbnails();
+      // Do not auto-initialize a document, show the new document modal
+      const newDocModal = document.getElementById('new-doc-modal');
+      if (newDocModal) {
+        newDocModal.classList.add('show');
+      } else {
+        pdfEngine.createBlankDocument();
+        await this.renderCurrentPage();
+        this.renderThumbnails();
+      }
     },
 
     // ==================== DOCUMENT LOADING ====================
@@ -449,6 +454,74 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ==================== BINDINGS & ACTIONS ====================
 
+    bindNewDocumentModal() {
+      const modal = document.getElementById('new-doc-modal');
+      if (!modal) return;
+
+      const btnClose = document.getElementById('btn-close-new-doc-modal');
+      const btnCancel = document.getElementById('btn-cancel-new-doc-modal');
+      const btnCreate = document.getElementById('btn-create-new-doc');
+      const presetSelect = document.getElementById('new-doc-preset');
+      const inputW = document.getElementById('new-doc-width');
+      const inputH = document.getElementById('new-doc-height');
+      const btnSwap = document.getElementById('btn-swap-dimensions');
+      const bgPicker = document.getElementById('new-doc-bg-picker');
+      const btnTransparent = document.getElementById('btn-new-doc-bg-transparent');
+
+      const hideModal = () => modal.classList.remove('show');
+
+      btnClose?.addEventListener('click', hideModal);
+      btnCancel?.addEventListener('click', hideModal);
+
+      // Preset Change
+      presetSelect?.addEventListener('change', (e) => {
+        if (e.target.value !== 'Custom') {
+          const selectedOption = e.target.options[e.target.selectedIndex];
+          inputW.value = selectedOption.dataset.width;
+          inputH.value = selectedOption.dataset.height;
+        }
+      });
+
+      // Inputs change -> switch to Custom
+      const setCustom = () => presetSelect.value = 'Custom';
+      inputW?.addEventListener('input', setCustom);
+      inputH?.addEventListener('input', setCustom);
+
+      // Swap Dimensions
+      btnSwap?.addEventListener('click', () => {
+        const temp = inputW.value;
+        inputW.value = inputH.value;
+        inputH.value = temp;
+        setCustom();
+      });
+
+      // Background Transparent Toggle
+      btnTransparent?.addEventListener('click', () => {
+        btnTransparent.classList.toggle('active');
+      });
+      bgPicker?.addEventListener('input', () => {
+        btnTransparent?.classList.remove('active');
+      });
+
+      // Create Document
+      btnCreate?.addEventListener('click', async () => {
+        const w = parseInt(inputW.value) || 794;
+        const h = parseInt(inputH.value) || 1123;
+        const bgColor = btnTransparent.classList.contains('active') ? 'transparent' : bgPicker.value;
+
+        // Either create entirely new doc, or add page?
+        // "New Document" implies resetting the workspace.
+        pdfEngine.createBlankDocument(w, h, bgColor);
+        
+        document.getElementById('doc-filename').value = 'Untitled-Document.pdf';
+        
+        hideModal();
+        await this.renderCurrentPage();
+        this.renderThumbnails();
+        canvasManager.showToast(`New Document Created (${w}x${h})`, 'success');
+      });
+    },
+
     bindHeaderActions() {
       // Open File
       const fileInput = document.getElementById('file-input');
@@ -463,8 +536,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Load Sample Demo
       document.getElementById('btn-load-sample')?.addEventListener('click', () => this.loadSampleDocument());
-      document.getElementById('btn-new-blank')?.addEventListener('click', () => this.addNewPage());
+      
+      document.getElementById('btn-new-blank')?.addEventListener('click', () => {
+        document.getElementById('new-doc-modal')?.classList.add('show');
+      });
       document.getElementById('btn-add-page-sidebar')?.addEventListener('click', () => this.addNewPage());
+      
+      this.bindNewDocumentModal();
 
       // Exit Text Edit Mode Banner button
       document.getElementById('btn-exit-text-edit-mode')?.addEventListener('click', () => {
