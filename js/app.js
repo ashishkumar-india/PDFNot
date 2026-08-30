@@ -1239,6 +1239,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       }
 
+      // Custom Font Upload (.ttf, .otf, .woff, .woff2)
+      const btnUploadCustomFont = document.getElementById('btn-upload-custom-font');
+      const customFontInput = document.getElementById('custom-font-file-input');
+      const optgroupCustomFonts = document.getElementById('optgroup-custom-fonts');
+
+      if (btnUploadCustomFont && customFontInput) {
+        btnUploadCustomFont.addEventListener('click', () => {
+          customFontInput.click();
+        });
+
+        customFontInput.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          try {
+            const fontName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+            const arrayBuffer = await file.arrayBuffer();
+            const fontFace = new FontFace(fontName, arrayBuffer);
+            await fontFace.load();
+            document.fonts.add(fontFace);
+
+            if (optgroupCustomFonts) {
+              optgroupCustomFonts.style.display = '';
+              const newOption = document.createElement('option');
+              newOption.value = `'${fontName}', sans-serif`;
+              newOption.textContent = `📁 ${file.name.replace(/\.[^/.]+$/, "")}`;
+              optgroupCustomFonts.appendChild(newOption);
+              if (fontSelect) fontSelect.value = newOption.value;
+
+              const obj = canvasManager.canvas.getActiveObject();
+              if (obj && (obj.type === 'i-text' || obj.type === 'text')) {
+                obj.set('fontFamily', newOption.value);
+                canvasManager.canvas.renderAll();
+                canvasManager.saveState();
+              }
+            }
+            canvasManager.showToast(`Font "${file.name}" loaded successfully!`, 'success');
+          } catch (fontErr) {
+            console.error("Failed to load custom font:", fontErr);
+            canvasManager.showToast("Failed to load custom font file.", "error");
+          }
+          customFontInput.value = '';
+        });
+      }
+
       const fontSizeInput = document.getElementById('text-font-size');
       if (fontSizeInput) {
         fontSizeInput.addEventListener('input', (e) => {

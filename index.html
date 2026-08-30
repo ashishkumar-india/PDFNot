@@ -441,29 +441,52 @@
           <!-- Font Family & Size -->
           <div class="form-row">
             <div class="form-col col-8">
-              <label>Font Family</label>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label style="margin-bottom:0;">Font Family</label>
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-upload-custom-font" style="padding:2px 8px; font-size:11px; height:auto;" title="Upload custom TTF/OTF font (e.g. Kruti Dev, AMS, Shree Lipi)">
+                  <i class="fa-solid fa-plus"></i> Add Font
+                </button>
+                <input type="file" id="custom-font-file-input" accept=".ttf,.otf,.woff,.woff2" style="display:none">
+              </div>
               <select id="text-font-family" class="form-select">
-                <optgroup label="🌟 Hindi Fonts (हिंदी फॉन्ट्स)">
+                <optgroup label="📁 Custom Uploaded Fonts" id="optgroup-custom-fonts" style="display:none"></optgroup>
+                <optgroup label="🌟 Clean & Standard Hindi (क्लीन हिंदी)">
                   <option value="'Noto Sans Devanagari', sans-serif" selected>Noto Sans Hindi (क्लीन आधुनिक)</option>
-                  <option value="'Noto Serif Devanagari', serif">Noto Serif Hindi (फॉर्मल / समाचार)</option>
                   <option value="'Mukta', sans-serif">Mukta Hindi (आधुनिक मुक्ता)</option>
                   <option value="'Hind', sans-serif">Hind (स्पष्ट और सुंदर)</option>
                   <option value="'Poppins', sans-serif">Poppins Hindi (पॉपिन्स)</option>
-                  <option value="'Kalam', cursive">Kalam Hindi (हाथ से लिखा / कलम)</option>
-                  <option value="'Rajdhani', sans-serif">Rajdhani (टेक / बोल्ड राजधानी)</option>
-                  <option value="'Rozha One', serif">Rozha One (बोल्ड हेडिंग)</option>
-                  <option value="'Yatra One', cursive">Yatra One (पारंपरिक यात्रा)</option>
-                  <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari (साहित्यिक)</option>
-                  <option value="'Amita', cursive">Amita (कर्सिव / अमिता)</option>
-                  <option value="'Ranga', cursive">Ranga (ब्रश / रंगा)</option>
-                  <option value="'Gotu', sans-serif">Gotu (जियोमेट्रिक गोतु)</option>
+                  <option value="'Sarala', sans-serif">Sarala (सरला)</option>
+                  <option value="'Biryani', sans-serif">Biryani (बिरयानी)</option>
+                  <option value="'Jaldi', sans-serif">Jaldi (जल्दी)</option>
+                  <option value="'Cambay', sans-serif">Cambay (कैम्बे)</option>
+                </optgroup>
+                <optgroup label="📜 Formal & Serif Hindi (सरकारी / समाचार)">
+                  <option value="'Noto Serif Devanagari', serif">Noto Serif Hindi (फॉर्मल / समाचार)</option>
+                  <option value="'Halant', serif">Halant (हलंत फॉर्मल)</option>
+                  <option value="'Sahitya', serif">Sahitya (साहित्यिक)</option>
                   <option value="'Martel', serif">Martel (मार्तेल सेरिफ़)</option>
-                  <option value="'Glegoo', serif">Glegoo (ग्लिगु)</option>
-                  <option value="'Sahitya', serif">Sahitya (साहित्य)</option>
+                  <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari (पारंपरिक)</option>
                   <option value="'Karma', serif">Karma (कर्म)</option>
                   <option value="'Eczar', serif">Eczar (एक्ज़ार)</option>
-                  <option value="'Jaldi', sans-serif">Jaldi (जल्दी)</option>
-                  <option value="'Sarala', sans-serif">Sarala (सरला)</option>
+                  <option value="'Glegoo', serif">Glegoo (ग्लिगु)</option>
+                  <option value="'Kurale', serif">Kurale (कुराले)</option>
+                </optgroup>
+                <optgroup label="✍️ Calligraphy & Handwriting (कैलीग्राफी / हस्तलेखन)">
+                  <option value="'Kalam', cursive">Kalam Hindi (कलम हस्तलेखन)</option>
+                  <option value="'Amita', cursive">Amita (कर्सिव अमिता)</option>
+                  <option value="'Ranga', cursive">Ranga (ब्रश रंगा)</option>
+                  <option value="'Tillana', cursive">Tillana (तिल्लाना कैलीग्राफी)</option>
+                  <option value="'Dekko', cursive">Dekko (डेक्को मार्कर)</option>
+                  <option value="'Yatra One', cursive">Yatra One (पारंपरिक यात्रा)</option>
+                </optgroup>
+                <optgroup label="🏛️ Bold Display & Headings (बोल्ड हेडिंग)">
+                  <option value="'Rozha One', serif">Rozha One (बोल्ड हेडिंग)</option>
+                  <option value="'Khand', sans-serif">Khand (खंड बोल्ड)</option>
+                  <option value="'Teko', sans-serif">Teko (टेको कॉम्पैक्ट)</option>
+                  <option value="'Rajdhani', sans-serif">Rajdhani (राजधानी टेक)</option>
+                  <option value="'Modak', cursive">Modak (मोदक हैवी बबल)</option>
+                  <option value="'Gotu', sans-serif">Gotu (जियोमेट्रिक गोतु)</option>
+                  <option value="'Arya', sans-serif">Arya (आर्य)</option>
                 </optgroup>
                 <optgroup label="English & Standard Fonts">
                   <option value="Inter, sans-serif">Inter (Modern Clean)</option>
@@ -1214,17 +1237,17 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 
   <!-- 6. App Modules -->
-  <script src="js/hindi-package.js?v=5.8"></script>
-  <script src="js/bg-remover.js?v=5.8"></script>
-  <script src="js/sample-data.js?v=5.8"></script>
-  <script src="js/vector-export.js?v=5.8"></script>
-  <script src="js/pdf-engine.js?v=5.8"></script>
-  <script src="js/signature-modal.js?v=5.8"></script>
-  <script src="js/crop-filter.js?v=5.8"></script>
-  <script src="js/pdf-text-editor.js?v=5.8"></script>
-  <script src="js/smart-guides.js?v=5.8"></script>
-  <script src="js/canvas-manager.js?v=5.8"></script>
-  <script src="js/app.js?v=5.8"></script>
+  <script src="js/hindi-package.js?v=5.9"></script>
+  <script src="js/bg-remover.js?v=5.9"></script>
+  <script src="js/sample-data.js?v=5.9"></script>
+  <script src="js/vector-export.js?v=5.9"></script>
+  <script src="js/pdf-engine.js?v=5.9"></script>
+  <script src="js/signature-modal.js?v=5.9"></script>
+  <script src="js/crop-filter.js?v=5.9"></script>
+  <script src="js/pdf-text-editor.js?v=5.9"></script>
+  <script src="js/smart-guides.js?v=5.9"></script>
+  <script src="js/canvas-manager.js?v=5.9"></script>
+  <script src="js/app.js?v=5.9"></script>
 
 </body>
 </html>
