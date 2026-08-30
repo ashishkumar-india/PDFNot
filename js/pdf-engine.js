@@ -281,9 +281,13 @@ class PDFEngine {
       if (!pageData.bgDataUrl && pageData.originalDataUrl) {
         pageData.bgDataUrl = pageData.originalDataUrl;
       }
+      
+      const origW = pageData.originalWidth || 794;
+      const origH = pageData.originalHeight || 1123;
+      
       if (!pageData.bgDataUrl) {
-        pageData.renderWidth = pageData.originalWidth || 794;
-        pageData.renderHeight = pageData.originalHeight || 1123;
+        pageData.renderWidth = origW;
+        pageData.renderHeight = origH;
         return null;
       }
 
@@ -294,19 +298,16 @@ class PDFEngine {
         if (rotated) {
           pageData.bgDataUrl = rotated;
           pageData._rotationApplied = pageData.rotation;
-          // Swap width/height for 90/270 rotations
+          // Swap width/height for 90/270 rotations relative to original bounds
           const isSwapped = (pageData.rotation === 90 || pageData.rotation === 270);
-          const w = pageData.originalWidth || 794;
-          const h = pageData.originalHeight || 1123;
-          pageData.renderWidth = isSwapped ? h : w;
-          pageData.renderHeight = isSwapped ? w : h;
+          pageData.renderWidth = isSwapped ? origH : origW;
+          pageData.renderHeight = isSwapped ? origW : origH;
         }
-      }
-
-      // Ensure renderWidth/renderHeight are always populated
-      if (!pageData.renderWidth) {
-        pageData.renderWidth = pageData.originalWidth || 794;
-        pageData.renderHeight = pageData.originalHeight || 1123;
+      } else {
+        // No pending rotation to apply, just ensure bounds match current rotation state
+        const isSwapped = (pageData.rotation === 90 || pageData.rotation === 270);
+        pageData.renderWidth = isSwapped ? origH : origW;
+        pageData.renderHeight = isSwapped ? origW : origH;
       }
       return pageData.bgDataUrl;
     }
