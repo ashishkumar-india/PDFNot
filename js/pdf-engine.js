@@ -323,7 +323,8 @@ class PDFEngine {
       const img = new Image();
       img.onload = () => {
         const rad = (degrees * Math.PI) / 180;
-        const isSwapped = (degrees === 90 || degrees === 270);
+        const normDeg = ((degrees % 360) + 360) % 360; // Normalize to 0, 90, 180, 270
+        const isSwapped = (normDeg === 90 || normDeg === 270);
         const w = isSwapped ? img.height : img.width;
         const h = isSwapped ? img.width : img.height;
 
