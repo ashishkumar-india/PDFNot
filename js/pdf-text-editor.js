@@ -68,8 +68,13 @@ class PDFTextEditor {
       // If clicking an existing editable IText, let Fabric handle focus and cursor editing
       if (opt.target && opt.target.type === 'i-text') return;
 
+      // Only intercept when explicitly in Text Edit Mode or activeTool is 'edit-pdf-text'
+      if (!this.isTextEditMode && this.canvasManager.activeTool !== 'edit-pdf-text') {
+        return;
+      }
+
       // Don't intercept when actively drawing, highlighting, erasing, or panning
-      const nonTextTools = ['draw', 'highlighter', 'eraser', 'hand'];
+      const nonTextTools = ['draw', 'highlighter', 'eraser', 'hand', 'shapes', 'redact-white', 'redact-black'];
       if (nonTextTools.includes(this.canvasManager.activeTool)) return;
 
       const pointer = canvas.getPointer(opt.e);

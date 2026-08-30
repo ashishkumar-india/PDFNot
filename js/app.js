@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         await canvasManager.loadPageAnnotations(pageData.fabricJSON);
         canvasManager.resetHistory();
+        canvasManager.syncInspectorWithOptions(null);
 
         // Update Header Page Nav
         const currPageInput = document.getElementById('current-page-num');
@@ -1067,6 +1068,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnImageBgTransparent?.classList.remove('active');
             canvasManager.canvas.renderAll();
             canvasManager.saveState();
+          } else {
+            canvasManager.canvas.backgroundColor = e.target.value;
+            const shadowBox = document.querySelector('.canvas-shadow-box');
+            if (shadowBox) shadowBox.style.backgroundColor = e.target.value;
+            const currPage = pdfEngine.getCurrentPage();
+            if (currPage) currPage.canvasBgColor = e.target.value;
+            btnImageBgTransparent?.classList.remove('active');
+            canvasManager.canvas.renderAll();
+            canvasManager.saveState();
           }
         });
       }
@@ -1076,6 +1086,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           const obj = canvasManager.canvas.getActiveObject();
           if (obj && obj.type === 'image') {
             obj.set('backgroundColor', 'transparent');
+            btnImageBgTransparent.classList.add('active');
+            canvasManager.canvas.renderAll();
+            canvasManager.saveState();
+          } else {
+            canvasManager.canvas.backgroundColor = 'transparent';
+            const shadowBox = document.querySelector('.canvas-shadow-box');
+            if (shadowBox) shadowBox.style.backgroundColor = 'transparent';
+            const currPage = pdfEngine.getCurrentPage();
+            if (currPage) currPage.canvasBgColor = 'transparent';
             btnImageBgTransparent.classList.add('active');
             canvasManager.canvas.renderAll();
             canvasManager.saveState();

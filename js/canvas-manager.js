@@ -1209,14 +1209,31 @@ class CanvasManager {
    */
   async removeSelectedImageBackground(tolerance = 30) {
     const activeObj = this.canvas.getActiveObject();
-    if (!activeObj || activeObj.type !== 'image') {
-      this.showToast("Please select an image first.", "error");
+    let isPageBg = false;
+    let src = null;
+
+    if (activeObj && activeObj.type === 'image') {
+      src = activeObj.getSrc ? activeObj.getSrc() : activeObj._element?.src;
+    } else {
+      // Check for Page Background Image
+      const currPage = this.pdfEngine?.getCurrentPage();
+      const bgImg = this.canvas.backgroundImage;
+      if (bgImg && (bgImg.getSrc || bgImg._element)) {
+        src = bgImg.getSrc ? bgImg.getSrc() : bgImg._element?.src;
+        isPageBg = true;
+      } else if (currPage?.fabricJSON?.customBgDataUrl || currPage?.bgDataUrl) {
+        src = currPage.fabricJSON?.customBgDataUrl || currPage.bgDataUrl;
+        isPageBg = true;
+      }
+    }
+
+    if (!src) {
+      this.showToast("No image selected or loaded on page.", "error");
       return;
     }
 
     try {
       this.showToast("✨ Processing AI background removal...", "info");
-      const src = activeObj.getSrc ? activeObj.getSrc() : activeObj._element.src;
       const transparentDataUrl = await BackgroundRemover.removeBackground(src, {
         mode: 'auto',
         tolerance: tolerance,
@@ -1224,11 +1241,28 @@ class CanvasManager {
         floodFill: true
       });
 
-      activeObj.setSrc(transparentDataUrl, () => {
-        this.canvas.renderAll();
+      if (isPageBg) {
+        const currPage = this.pdfEngine?.getCurrentPage();
+        if (currPage) {
+          currPage.bgDataUrl = transparentDataUrl;
+          if (!currPage.fabricJSON) currPage.fabricJSON = {};
+          currPage.fabricJSON.customBgDataUrl = transparentDataUrl;
+        }
+        const w = this.canvas.getWidth();
+        const h = this.canvas.getHeight();
+        await this.setPageBackground(transparentDataUrl, w, h);
+        if (this.uiManager?.renderThumbnails) {
+          this.uiManager.renderThumbnails();
+        }
         this.saveState();
         this.showToast("Background removed successfully!", "success");
-      });
+      } else if (activeObj) {
+        activeObj.setSrc(transparentDataUrl, () => {
+          this.canvas.renderAll();
+          this.saveState();
+          this.showToast("Background removed successfully!", "success");
+        });
+      }
     } catch (err) {
       console.error("Error removing image background:", err);
       this.showToast("Failed to remove background: " + err.message, "error");
@@ -1391,8 +1425,7 @@ class CanvasManager {
   handleSelectionCleared() {
     const ctxBar = document.getElementById('floating-context-bar');
     if (ctxBar) ctxBar.classList.remove('show');
-    const imgBgSec = document.getElementById('sec-image-bg-props');
-    if (imgBgSec) imgBgSec.style.display = 'none';
+    this.syncInspectorWithOptions(null);
   }
 
   positionFloatingContextBar(obj) {
@@ -1457,6 +1490,14 @@ class CanvasManager {
       return;
     }
 
+  replaceSelectedImage() {
+    const activeObj = this.canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== 'image') {
+      // Trigger file upload to replace page background image
+      document.getElementById('file-input')?.click();
+      return;
+    }
+
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/png,image/jpeg,image/webp,image/svg+xml';
@@ -1505,17 +1546,28 @@ class CanvasManager {
       this.saveState();
       document.getElementById('floating-context-bar')?.classList.remove('show');
       this.showToast("Object deleted", "info");
+    } else if (this.canvas.backgroundImage) {
+      this.canvas.backgroundImage = null;
+      const currPage = this.pdfEngine?.getCurrentPage();
+      if (currPage) {
+        currPage.bgDataUrl = null;
+        if (currPage.fabricJSON) currPage.fabricJSON.customBgDataUrl = null;
+      }
+      this.canvas.renderAll();
+      this.saveState();
+      this.syncInspectorWithOptions(null);
+      this.showToast("Background image removed", "info");
     }
   }
 
   syncInspectorWithOptions(obj) {
-    if (!obj) return;
-
     // Image AI BG & Filters section
     const imgBgSec = document.getElementById('sec-image-bg-props');
+    const hasPageImage = !!(this.canvas.backgroundImage || this.pdfEngine?.getCurrentPage()?.bgDataUrl || (this.pdfEngine?.currentDoc?.type === 'image'));
+
     if (imgBgSec) {
-      imgBgSec.style.display = (obj.type === 'image') ? 'flex' : 'none';
-      if (obj.type === 'image') {
+      if (obj && obj.type === 'image') {
+        imgBgSec.style.display = 'flex';
         const imageBgPicker = document.getElementById('image-bg-picker');
         const btnImageBgTransparent = document.getElementById('btn-image-bg-transparent');
         
@@ -1524,8 +1576,22 @@ class CanvasManager {
         if (!isTransparent && imageBgPicker) {
           imageBgPicker.value = this.rgbOrHexToHex(obj.backgroundColor);
         }
+      } else if (!obj && hasPageImage) {
+        imgBgSec.style.display = 'flex';
+        const imageBgPicker = document.getElementById('image-bg-picker');
+        const btnImageBgTransparent = document.getElementById('btn-image-bg-transparent');
+        
+        const isTransparent = !this.canvas.backgroundColor || this.canvas.backgroundColor === 'transparent';
+        if (btnImageBgTransparent) btnImageBgTransparent.classList.toggle('active', isTransparent);
+        if (!isTransparent && imageBgPicker) {
+          imageBgPicker.value = this.rgbOrHexToHex(this.canvas.backgroundColor || '#ffffff');
+        }
+      } else {
+        imgBgSec.style.display = 'none';
       }
     }
+
+    if (!obj) return;
 
     // Sync Text Props
     if (obj.type === 'i-text' || obj.type === 'text') {
