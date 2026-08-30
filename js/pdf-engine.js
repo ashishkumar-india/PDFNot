@@ -504,6 +504,146 @@ class PDFEngine {
   }
 
   /**
+   * Extracts all embedded images (photos, logos, icons) from a PDF page
+   * @param {number} pageIndex 
+   * @returns {Promise<Array<{dataUrl: string, left: number, top: number, width: number, height: number}>>}
+   */
+  async extractPageImages(pageIndex) {
+    const pageData = this.pagesData[pageIndex];
+    if (!pageData) return [];
+
+    if (pageData.extractedImages) {
+      return pageData.extractedImages;
+    }
+
+    if (!this.currentDoc || this.currentDoc.type !== 'pdf' || !this.currentDoc.pdfDocProxy || pageData.isCustom) {
+      return [];
+    }
+
+    try {
+      const pdfPage = await this.currentDoc.pdfDocProxy.getPage(pageData.originalPdfPageNum);
+      const totalRotation = (pdfPage.rotate + (pageData.rotation || 0)) % 360;
+      const viewport = pdfPage.getViewport({ scale: 1.0, rotation: totalRotation });
+      const opList = await pdfPage.getOperatorList();
+      const extracted = [];
+
+      const OPS = pdfjsLib.OPS;
+      let ctm = [1, 0, 0, 1, 0, 0];
+      const transformStack = [];
+
+      for (let i = 0; i < opList.fnArray.length; i++) {
+        const fn = opList.fnArray[i];
+        const args = opList.argsArray[i];
+
+        if (fn === OPS.save) {
+          transformStack.push(ctm.slice());
+        } else if (fn === OPS.restore) {
+          if (transformStack.length > 0) {
+            ctm = transformStack.pop();
+          }
+        } else if (fn === OPS.transform) {
+          ctm = pdfjsLib.Util.transform(ctm, args);
+        } else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject) {
+          const imgName = args ? args[0] : null;
+          if (!imgName && fn !== OPS.paintInlineImageXObject) continue;
+
+          try {
+            const imgObj = await new Promise((resolve) => {
+              if (fn === OPS.paintInlineImageXObject) {
+                resolve(args[0]);
+              } else if (pdfPage.objs.has(imgName)) {
+                resolve(pdfPage.objs.get(imgName));
+              } else {
+                pdfPage.objs.get(imgName, (obj) => resolve(obj));
+                setTimeout(() => resolve(null), 400);
+              }
+            });
+
+            if (!imgObj) continue;
+
+            const imgCanvas = document.createElement('canvas');
+            const iW = imgObj.width || 100;
+            const iH = imgObj.height || 100;
+            imgCanvas.width = iW;
+            imgCanvas.height = iH;
+            const ictx = imgCanvas.getContext('2d');
+
+            if (imgObj instanceof HTMLImageElement || imgObj instanceof ImageBitmap || imgObj instanceof HTMLCanvasElement) {
+              ictx.drawImage(imgObj, 0, 0);
+            } else if (imgObj.data) {
+              let imgData;
+              if (imgObj.data.length === iW * iH * 4) {
+                imgData = new ImageData(new Uint8ClampedArray(imgObj.data), iW, iH);
+              } else if (imgObj.data.length === iW * iH * 3) {
+                const rgba = new Uint8ClampedArray(iW * iH * 4);
+                let s = 0, d = 0;
+                while (s < imgObj.data.length) {
+                  rgba[d++] = imgObj.data[s++];
+                  rgba[d++] = imgObj.data[s++];
+                  rgba[d++] = imgObj.data[s++];
+                  rgba[d++] = 255;
+                }
+                imgData = new ImageData(rgba, iW, iH);
+              } else {
+                imgData = ictx.createImageData(iW, iH);
+                for (let k = 0; k < iW * iH; k++) {
+                  const val = imgObj.data[k] !== undefined ? imgObj.data[k] : 0;
+                  imgData.data[k * 4] = val;
+                  imgData.data[k * 4 + 1] = val;
+                  imgData.data[k * 4 + 2] = val;
+                  imgData.data[k * 4 + 3] = 255;
+                }
+              }
+              ictx.putImageData(imgData, 0, 0);
+            }
+
+            const dataUrl = imgCanvas.toDataURL('image/png');
+
+            // Calculate screen viewport transform
+            const fullMatrix = pdfjsLib.Util.transform(viewport.transform, ctm);
+            const p0 = pdfjsLib.Util.applyTransform([0, 0], fullMatrix);
+            const p1 = pdfjsLib.Util.applyTransform([1, 0], fullMatrix);
+            const p2 = pdfjsLib.Util.applyTransform([1, 1], fullMatrix);
+            const p3 = pdfjsLib.Util.applyTransform([0, 1], fullMatrix);
+
+            const xs = [p0[0], p1[0], p2[0], p3[0]];
+            const ys = [p0[1], p1[1], p2[1], p3[1]];
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            const minY = Math.min(...ys);
+            const maxY = Math.max(...ys);
+
+            const renderW = Math.max(maxX - minX, 10);
+            const renderH = Math.max(maxY - minY, 10);
+
+            // Ignore 1px spacers / tracking pixels
+            if (renderW > 8 && renderH > 8) {
+              extracted.push({
+                id: 'pdf_img_' + Date.now() + '_' + extracted.length,
+                dataUrl: dataUrl,
+                left: Math.round(minX),
+                top: Math.round(minY),
+                width: Math.round(renderW),
+                height: Math.round(renderH),
+                naturalWidth: iW,
+                naturalHeight: iH
+              });
+            }
+          } catch (imgErr) {
+            console.warn("Could not extract embedded image:", imgErr);
+          }
+        }
+      }
+
+      pageData.extractedImages = extracted;
+      return extracted;
+    } catch (err) {
+      console.error("Error extracting page images:", err);
+      return [];
+    }
+  }
+
+  /**
    * Exports the entire multi-page document as a True Vector PDF
    * Preserves original PDF structures and draws text/vectors losslessly
    * @returns {Promise<Blob>}

@@ -1367,8 +1367,225 @@ class PDFTextEditor {
       document.getElementById('find-replace-modal')?.classList.remove('show');
       this.canvasManager.showToast(`Replaced ${matchCount} occurrence(s) successfully!`, 'success');
     } else {
-      alert(`No matches found for "${findStr}".`);
+  /**
+   * Batch converts ALL extracted text lines on current page into editable Fabric IText objects
+   * and cleanly erases them from the page background canvas (Canva / Illustrator mode)
+   */
+  async convertAllLinesToEditableObjects() {
+    if (!this.extractedLines || this.extractedLines.length === 0) {
+      await this.extractTextFromCurrentPage();
     }
+
+    if (!this.extractedLines || this.extractedLines.length === 0) {
+      this.canvasManager.showToast("No text lines found to extract.", "info");
+      return 0;
+    }
+
+    const canvas = this.canvasManager.canvas;
+    const bgImage = canvas.backgroundImage;
+    const lines = this.extractedLines.slice();
+    this.extractedLines = []; // Clear lines so they aren't re-extracted
+
+    if (!bgImage || !bgImage._element) {
+      // No background image, just add ITexts
+      lines.forEach(line => {
+        const isBold = line.fontWeight === 'bold' || line.fontWeight === '700';
+        const tObj = new fabric.IText(line.text, {
+          left: line.x,
+          top: line.y,
+          fontSize: line.fontSize,
+          fontFamily: line.fontFamily || "Arimo, 'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontWeight: isBold ? 'bold' : 'normal',
+          fontStyle: line.fontStyle || 'normal',
+          fill: '#0f172a',
+          editable: true
+        });
+        canvas.add(tObj);
+      });
+      canvas.renderAll();
+      this.canvasManager.saveState();
+      return lines.length;
+    }
+
+    const imgEl = bgImage._element;
+    const scaleX = bgImage.scaleX || 1;
+    const scaleY = bgImage.scaleY || 1;
+    const imgW = imgEl.naturalWidth || imgEl.width;
+    const imgH = imgEl.naturalHeight || imgEl.height;
+
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = imgW;
+    offCanvas.height = imgH;
+    const offCtx = offCanvas.getContext('2d');
+    offCtx.drawImage(imgEl, 0, 0);
+
+    const isImageDoc = (this.pdfEngine.currentDoc && this.pdfEngine.currentDoc.type === 'image');
+    const createdTextObjects = [];
+
+    lines.forEach(line => {
+      if (!line.text || line.text.trim().length === 0) return;
+
+      const iX = Math.max(Math.round(line.x / scaleX), 0);
+      const iY = Math.max(Math.round(line.y / scaleY), 0);
+      const iW = Math.max(Math.round(line.width / scaleX), 10);
+      const iH = Math.max(Math.round(line.height / scaleY), 10);
+
+      const safeX = Math.max(iX, 0);
+      const safeY = Math.max(iY, 0);
+      const safeW = Math.min(iW, imgW - safeX);
+      const safeH = Math.min(iH, imgH - safeY);
+
+      let dominantBg = { r: 255, g: 255, b: 255 };
+      if (safeW > 0 && safeH > 0) {
+        const regionPixels = offCtx.getImageData(safeX, safeY, safeW, safeH).data;
+        const bgHistogram = {};
+        let maxBgCount = 0;
+
+        for (let i = 0; i < regionPixels.length; i += 4) {
+          const r = regionPixels[i];
+          const g = regionPixels[i + 1];
+          const b = regionPixels[i + 2];
+          const a = regionPixels[i + 3];
+
+          if (a > 50) {
+            const qr = Math.round(r / 6) * 6;
+            const qg = Math.round(g / 6) * 6;
+            const qb = Math.round(b / 6) * 6;
+            const key = `${qr},${qg},${qb}`;
+            bgHistogram[key] = (bgHistogram[key] || 0) + 1;
+            if (bgHistogram[key] > maxBgCount) {
+              maxBgCount = bgHistogram[key];
+              dominantBg = { r, g, b };
+            }
+          }
+        }
+      }
+
+      const bgColor = `rgb(${dominantBg.r}, ${dominantBg.g}, ${dominantBg.b})`;
+      let textColor = '#0f172a';
+
+      if (safeW > 0 && safeH > 0) {
+        const textPixels = offCtx.getImageData(safeX, safeY, safeW, safeH).data;
+        const glyphCandidates = [];
+
+        for (let i = 0; i < textPixels.length; i += 4) {
+          const r = textPixels[i];
+          const g = textPixels[i + 1];
+          const b = textPixels[i + 2];
+          const a = textPixels[i + 3];
+
+          if (a > 100) {
+            const contrast = Math.abs(r - dominantBg.r) + Math.abs(g - dominantBg.g) + Math.abs(b - dominantBg.b);
+            if (contrast > 40) {
+              glyphCandidates.push({ r, g, b, contrast });
+            }
+          }
+        }
+
+        if (glyphCandidates.length > 0) {
+          glyphCandidates.sort((a, b) => b.contrast - a.contrast);
+          const coreCount = Math.max(Math.round(glyphCandidates.length * 0.15), 1);
+          const corePixels = glyphCandidates.slice(0, coreCount);
+
+          const colorCounts = {};
+          let maxCount = 0;
+          let dominantGlyph = corePixels[0];
+
+          corePixels.forEach(p => {
+            const qr = Math.round(p.r / 6) * 6;
+            const qg = Math.round(p.g / 6) * 6;
+            const qb = Math.round(p.b / 6) * 6;
+            const key = `${qr},${qg},${qb}`;
+            colorCounts[key] = (colorCounts[key] || 0) + 1;
+            if (colorCounts[key] > maxCount) {
+              maxCount = colorCounts[key];
+              dominantGlyph = { r: p.r, g: p.g, b: p.b };
+            }
+          });
+
+          const brightness = (dominantGlyph.r + dominantGlyph.g + dominantGlyph.b) / 3;
+          if (dominantBg.r < 80 && dominantBg.g < 80 && dominantBg.b < 80 && brightness > 175) {
+            textColor = '#ffffff';
+          } else {
+            textColor = `rgb(${dominantGlyph.r}, ${dominantGlyph.g}, ${dominantGlyph.b})`;
+          }
+        }
+      }
+
+      // Erase text area on offscreen background canvas
+      offCtx.fillStyle = bgColor;
+      const erasePadX = isImageDoc ? 14 : 6;
+      const erasePadY = isImageDoc ? 8 : 4;
+      const eraseWidth = Math.max(iW + (erasePadX * 2), isImageDoc ? 220 : iW + 12);
+      const eraseHeight = Math.max(Math.round((line.fontSize * (isImageDoc ? 1.5 : 1.35)) / scaleY), isImageDoc ? 38 : 16);
+
+      offCtx.fillRect(
+        Math.max(iX - erasePadX, 0),
+        Math.max(iY - erasePadY, 0),
+        eraseWidth,
+        eraseHeight
+      );
+
+      // Create Fabric IText
+      const isBold = line.fontWeight === 'bold' || line.fontWeight === '700' || line.fontWeight === '800';
+      const tObj = new fabric.IText(line.text, {
+        left: line.x,
+        top: line.y,
+        fontSize: line.fontSize,
+        fontFamily: line.fontFamily || "Arimo, 'Helvetica Neue', Helvetica, Arial, sans-serif",
+        fontWeight: isBold ? 'bold' : 'normal',
+        fontStyle: line.fontStyle || 'normal',
+        fill: textColor,
+        stroke: null,
+        strokeWidth: 0,
+        textBackgroundColor: 'transparent',
+        lineHeight: 1.15,
+        originX: 'left',
+        originY: 'top',
+        editable: true,
+        selectable: true,
+        hasControls: true,
+        hasBorders: true,
+        cornerColor: '#3b82f6',
+        cornerSize: 8,
+        transparentCorners: false
+      });
+
+      createdTextObjects.push(tObj);
+    });
+
+    // Update background image
+    const newDataUrl = offCanvas.toDataURL('image/png');
+    const currPage = this.pdfEngine.getCurrentPage();
+    if (currPage) {
+      if (!currPage.fabricJSON) currPage.fabricJSON = {};
+      currPage.fabricJSON.customBgDataUrl = newDataUrl;
+    }
+
+    await new Promise((resolve) => {
+      const newImg = new Image();
+      newImg.onload = () => {
+        const newFabricImg = new fabric.Image(newImg, {
+          originX: 'left',
+          originY: 'top',
+          left: 0,
+          top: 0,
+          scaleX: scaleX,
+          scaleY: scaleY,
+          selectable: false,
+          evented: false
+        });
+        canvas.setBackgroundImage(newFabricImg, () => {
+          createdTextObjects.forEach(t => canvas.add(t));
+          canvas.renderAll();
+          resolve();
+        });
+      };
+      newImg.src = newDataUrl;
+    });
+
+    this.canvasManager.saveState();
+    return createdTextObjects.length;
   }
 }
 

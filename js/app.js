@@ -453,6 +453,66 @@ document.addEventListener('DOMContentLoaded', async () => {
       canvasManager.showToast(`Page rotated ${deg > 0 ? 'CW' : 'CCW'} 90°`, 'info');
     },
 
+    async deconstructCurrentPage() {
+      const pageIndex = pdfEngine.currentPageIndex;
+      const pageData = pdfEngine.pagesData[pageIndex];
+      if (!pageData) return;
+
+      this.showLoader("⚡ Deconstructing PDF into editable layers...");
+      try {
+        let extractedImagesCount = 0;
+        let extractedTextCount = 0;
+
+        // 1. Extract embedded images & logos
+        if (pdfEngine.currentDoc && pdfEngine.currentDoc.type === 'pdf') {
+          const images = await pdfEngine.extractPageImages(pageIndex);
+          if (images && images.length > 0) {
+            for (const imgInfo of images) {
+              await new Promise((resolve) => {
+                fabric.Image.fromURL(imgInfo.dataUrl, (fImg) => {
+                  fImg.set({
+                    left: imgInfo.left,
+                    top: imgInfo.top,
+                    scaleX: imgInfo.width / fImg.width,
+                    scaleY: imgInfo.height / fImg.height,
+                    originX: 'left',
+                    originY: 'top',
+                    selectable: true,
+                    hasControls: true,
+                    hasBorders: true,
+                    cornerColor: '#3b82f6',
+                    cornerSize: 8,
+                    transparentCorners: false
+                  });
+                  canvasManager.canvas.add(fImg);
+                  resolve();
+                });
+              });
+              extractedImagesCount++;
+            }
+          }
+        }
+
+        // 2. Extract and convert all text lines
+        extractedTextCount = await pdfTextEditor.convertAllLinesToEditableObjects();
+
+        canvasManager.canvas.renderAll();
+        canvasManager.saveState();
+        this.renderThumbnails();
+
+        if (extractedTextCount > 0 || extractedImagesCount > 0) {
+          canvasManager.showToast(`⚡ Deconstructed! ${extractedTextCount} text lines and ${extractedImagesCount} images/logos are now editable layers.`, 'success');
+        } else {
+          canvasManager.showToast("All elements on this page are already editable.", "info");
+        }
+      } catch (err) {
+        console.error("Error deconstructing page:", err);
+        canvasManager.showToast("Could not deconstruct elements: " + err.message, "error");
+      } finally {
+        this.hideLoader();
+      }
+    },
+
     // ==================== BINDINGS & ACTIONS ====================
 
     bindNewDocumentModal() {
@@ -550,6 +610,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       document.getElementById('btn-add-page-sidebar')?.addEventListener('click', () => this.addNewPage());
       
+      // Deconstruct Page into Editable Layers (Canva / Illustrator mode)
+      document.getElementById('btn-deconstruct-page')?.addEventListener('click', () => this.deconstructCurrentPage());
+
       this.bindNewDocumentModal();
 
       // Exit Text Edit Mode Banner button
@@ -767,6 +830,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         width: brushWidth,
         ...options
       });
+    },
+
+    setActiveTool(toolName, options = {}) {
+      this.activateTool(toolName, options);
     },
 
     // ==================== AUTO BACKGROUND REMOVAL MODAL ====================

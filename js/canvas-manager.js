@@ -636,9 +636,48 @@ class CanvasManager {
       this.addRedactionBox(pointer.x, pointer.y, '#000000');
       return;
     }
+
+    // Magic Element Cutout Tool - drag box around any graphic/icon/line/logo to make it editable
+    if (this.activeTool === 'magic-extract') {
+      this._isExtracting = true;
+      this._extractStartX = pointer.x;
+      this._extractStartY = pointer.y;
+      
+      this._extractMarquee = new fabric.Rect({
+        left: pointer.x,
+        top: pointer.y,
+        width: 1,
+        height: 1,
+        fill: 'rgba(59, 130, 246, 0.15)',
+        stroke: '#3b82f6',
+        strokeWidth: 1.5,
+        strokeDashArray: [4, 4],
+        selectable: false,
+        evented: false
+      });
+      this.canvas.add(this._extractMarquee);
+      return;
+    }
   }
 
   handleMouseMove(opt) {
+    if (this._isExtracting && this._extractMarquee) {
+      const pointer = this.canvas.getPointer(opt.e);
+      const minX = Math.min(this._extractStartX, pointer.x);
+      const minY = Math.min(this._extractStartY, pointer.y);
+      const w = Math.abs(pointer.x - this._extractStartX);
+      const h = Math.abs(pointer.y - this._extractStartY);
+
+      this._extractMarquee.set({
+        left: minX,
+        top: minY,
+        width: Math.max(w, 2),
+        height: Math.max(h, 2)
+      });
+      this.canvas.renderAll();
+      return;
+    }
+
     if (this.isPanning) {
       const e = opt.e;
       const workspace = document.getElementById('canvas-workspace');
@@ -662,12 +701,158 @@ class CanvasManager {
     }
   }
 
-  handleMouseUp() {
+  async handleMouseUp() {
+    if (this._isExtracting && this._extractMarquee) {
+      this._isExtracting = false;
+      const mLeft = this._extractMarquee.left;
+      const mTop = this._extractMarquee.top;
+      const mWidth = this._extractMarquee.width;
+      const mHeight = this._extractMarquee.height;
+
+      this.canvas.remove(this._extractMarquee);
+      this._extractMarquee = null;
+
+      if (mWidth > 12 && mHeight > 12) {
+        this.showToast("✂️ Extracting element into editable object...", "info");
+        await this.convertRegionToEditableObject(mLeft, mTop, mWidth, mHeight);
+        // Switch back to Select tool so user can immediately move/edit it
+        if (this.uiManager?.setActiveTool) {
+          this.uiManager.setActiveTool('select');
+        } else {
+          this.setTool('select');
+        }
+        this.showToast("Element converted to editable layer! You can now move, resize, or delete it.", "success");
+      }
+      return;
+    }
+
     if (this.isPanning) {
       // Launch inertia momentum scroll (iOS-Maps-style friction decay)
       this._startPanInertia();
     }
     this.isPanning = false;
+  }
+
+  /**
+   * Cuts a region from the page background and converts it into a movable editable fabric.Image
+   * @param {number} x Left
+   * @param {number} y Top
+   * @param {number} width Width
+   * @param {number} height Height
+   */
+  async convertRegionToEditableObject(x, y, width, height) {
+    const bgImage = this.canvas.backgroundImage;
+    if (!bgImage || !bgImage._element) {
+      this.showToast("No background image found to extract from.", "error");
+      return null;
+    }
+
+    const imgEl = bgImage._element;
+    const scaleX = bgImage.scaleX || 1;
+    const scaleY = bgImage.scaleY || 1;
+    const imgW = imgEl.naturalWidth || imgEl.width;
+    const imgH = imgEl.naturalHeight || imgEl.height;
+
+    // Region in raw image pixel space
+    const iX = Math.max(Math.round(x / scaleX), 0);
+    const iY = Math.max(Math.round(y / scaleY), 0);
+    const iW = Math.min(Math.round(width / scaleX), imgW - iX);
+    const iH = Math.min(Math.round(height / scaleY), imgH - iY);
+
+    if (iW <= 4 || iH <= 4) return null;
+
+    // 1. Create cropped image dataUrl
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = iW;
+    cropCanvas.height = iH;
+    const cropCtx = cropCanvas.getContext('2d');
+    cropCtx.drawImage(imgEl, iX, iY, iW, iH, 0, 0, iW, iH);
+    const croppedDataUrl = cropCanvas.toDataURL('image/png');
+
+    // 2. Sample surrounding background color on the border
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = imgW;
+    offCanvas.height = imgH;
+    const offCtx = offCanvas.getContext('2d');
+    offCtx.drawImage(imgEl, 0, 0);
+
+    const borderSamples = [];
+    const sampleBorder = (sx, sy) => {
+      if (sx >= 0 && sx < imgW && sy >= 0 && sy < imgH) {
+        const p = offCtx.getImageData(sx, sy, 1, 1).data;
+        if (p[3] > 30) borderSamples.push({ r: p[0], g: p[1], b: p[2] });
+      }
+    };
+    for (let k = 0; k < iW; k += 4) {
+      sampleBorder(iX + k, Math.max(iY - 2, 0));
+      sampleBorder(iX + k, Math.min(iY + iH + 2, imgH - 1));
+    }
+    for (let k = 0; k < iH; k += 4) {
+      sampleBorder(Math.max(iX - 2, 0), iY + k);
+      sampleBorder(Math.min(iX + iW + 2, imgW - 1), iY + k);
+    }
+
+    let bgFill = '#ffffff';
+    if (borderSamples.length > 0) {
+      let rSum = 0, gSum = 0, bSum = 0;
+      borderSamples.forEach(s => { rSum += s.r; gSum += s.g; bSum += s.b; });
+      const avgR = Math.round(rSum / borderSamples.length);
+      const avgG = Math.round(gSum / borderSamples.length);
+      const avgB = Math.round(bSum / borderSamples.length);
+      bgFill = `rgb(${avgR}, ${avgG}, ${avgB})`;
+    }
+
+    // Erase the extracted region on background image
+    offCtx.fillStyle = bgFill;
+    offCtx.fillRect(iX, iY, iW, iH);
+
+    const newBgDataUrl = offCanvas.toDataURL('image/png');
+    const currPage = this.pdfEngine?.getCurrentPage();
+    if (currPage) {
+      if (!currPage.fabricJSON) currPage.fabricJSON = {};
+      currPage.fabricJSON.customBgDataUrl = newBgDataUrl;
+    }
+
+    // 3. Add Fabric Image object and update background
+    return new Promise((resolve) => {
+      const newImg = new Image();
+      newImg.onload = () => {
+        const newFabricImg = new fabric.Image(newImg, {
+          originX: 'left',
+          originY: 'top',
+          left: 0,
+          top: 0,
+          scaleX: scaleX,
+          scaleY: scaleY,
+          selectable: false,
+          evented: false
+        });
+        this.canvas.setBackgroundImage(newFabricImg, () => {
+          fabric.Image.fromURL(croppedDataUrl, (extractedObj) => {
+            extractedObj.set({
+              left: x,
+              top: y,
+              scaleX: width / extractedObj.width,
+              scaleY: height / extractedObj.height,
+              originX: 'left',
+              originY: 'top',
+              selectable: true,
+              hasControls: true,
+              hasBorders: true,
+              cornerColor: '#3b82f6',
+              cornerSize: 8,
+              transparentCorners: false
+            });
+            this.canvas.add(extractedObj);
+            this.canvas.setActiveObject(extractedObj);
+            this.canvas.renderAll();
+            this.saveState();
+            resolve(extractedObj);
+          });
+        });
+      };
+      newImg.src = newBgDataUrl;
+    });
   }
 
   /** Momentum/inertia panning after hand-tool drag ends */
