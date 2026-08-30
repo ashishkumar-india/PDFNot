@@ -520,7 +520,23 @@ class PDFTextEditor {
     const hasHindi = /[\u0900-\u097F]/.test(str || '');
     let fontStack = '';
 
-    if (hasHindi || combined.includes('devanagari') || combined.includes('hindi') || combined.includes('kruti') || combined.includes('mangal') || combined.includes('mukta') || combined.includes('shree') || combined.includes('apsara')) {
+    if (combined.includes('rozha')) {
+      fontStack = `'Rozha One', 'Noto Serif Devanagari', serif`;
+    } else if (combined.includes('yatra')) {
+      fontStack = `'Yatra One', cursive`;
+    } else if (combined.includes('kalam')) {
+      fontStack = `'Kalam', cursive`;
+    } else if (combined.includes('tiro')) {
+      fontStack = `'Tiro Devanagari Hindi', 'Noto Serif Devanagari', serif`;
+    } else if (combined.includes('mukta')) {
+      fontStack = `'Mukta', 'Noto Sans Devanagari', sans-serif`;
+    } else if (combined.includes('hind')) {
+      fontStack = `'Hind', 'Noto Sans Devanagari', sans-serif`;
+    } else if (combined.includes('rajdhani')) {
+      fontStack = `'Rajdhani', sans-serif`;
+    } else if (combined.includes('notoserif') || (hasHindi && (combined.includes('serif') || combined.includes('times')))) {
+      fontStack = `'Noto Serif Devanagari', 'Tiro Devanagari Hindi', serif`;
+    } else if (hasHindi || combined.includes('devanagari') || combined.includes('hindi') || combined.includes('kruti') || combined.includes('mangal') || combined.includes('shree') || combined.includes('apsara')) {
       fontStack = `'Noto Sans Devanagari', 'Mukta', 'Mangal', 'Nirmala UI', sans-serif`;
     } else if (combined.includes('times') || combined.includes('timesnewroman') || combined.includes('times-roman') || (combined.includes('serif') && !combined.includes('sans'))) {
       fontStack = `${loadedFontName ? `"${loadedFontName}", ` : ''}Tinos, 'Times New Roman', Times, serif`;
